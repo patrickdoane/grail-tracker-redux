@@ -1,0 +1,46 @@
+✔ Setup postgres database on development machine @done(25-08-19 08:18)
+  ✔ Install PostgreSQL @done(25-08-19 08:18)
+  ✔ Create a new database for the project @done(25-08-19 08:18)
+  ✔ Configure database connection settings in the application @done(25-08-19 08:18)
+    ✔ Save connection details in a `.env` file @done(25-08-19 08:18)
+    ✔ Backup secrets somewhere secure @done(25-08-19 08:18)
+
+☐ Create database schema @started(25-08-19 08:26)
+  - Define models for the application
+  - Use a migration tool to create the initial schema
+    - Run migrations to set up tables and relationships
+  - Verify schema by checking the database structure
+
+☐ Seed the database with initial data from the provided CSV files
+  - Write scripts to read CSV files and insert data into the database
+  - Ensure data integrity and consistency during the seeding process
+  - Validate that the data has been correctly inserted by querying the database
+
+☐ Implement basic CRUD operations for the main entities
+  - Create endpoints for creating, reading, updating, and deleting records
+    - Test each endpoint to ensure they work as expected
+☐ Set up a development environment for testing
+  - Use a testing framework to write unit and integration tests
+    - Create test cases for the CRUD operations
+    - Run tests to ensure functionality and catch any bugs early
+☐ Document the setup and usage of the database
+  - Write a README file with instructions on how to set up the database
+  - Include details on how to run migrations and seed the database
+  - Provide examples of API requests for CRUD operations
+☐ Review and optimize database performance
+    - Analyze query performance and optimize slow queries
+    - Consider indexing frequently queried fields
+    - Monitor database performance metrics and adjust configurations as needed
+☐ Prepare for deployment
+  - Ensure the database is secure and accessible only to authorized users
+    - Backup the database before deployment
+    - Document the deployment process for the database
+☐ Finalize the project
+  - Review all code and documentation
+    
+    - Ensure all tasks are completed and tested
+    - Prepare a final report summarizing the project
+    - Conduct a code review with team members
+    - Address any feedback and make necessary adjustments
+    - Archive the project repository and documentation for future reference
+    - Celebrate the successful completion of the project!

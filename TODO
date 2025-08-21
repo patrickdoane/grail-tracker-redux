@@ -6,7 +6,7 @@
     ✔ Backup secrets somewhere secure @done(25-08-19 08:18)
 
 ☐ Create database schema @started(25-08-19 08:26)
-  - Define models for the application
+  - Define models for the application @started(25-08-21 00:30)
   - Use a migration tool to create the initial schema
     - Run migrations to set up tables and relationships
   - Verify schema by checking the database structure

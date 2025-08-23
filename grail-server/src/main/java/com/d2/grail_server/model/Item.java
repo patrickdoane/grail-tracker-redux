@@ -2,6 +2,8 @@ package com.d2.grail_server.model;
 
 import jakarta.persistence.*;
 
+// Hibernate maps this model to the items table
+
 @Entity
 @Table(name = "items")
 public class Item {

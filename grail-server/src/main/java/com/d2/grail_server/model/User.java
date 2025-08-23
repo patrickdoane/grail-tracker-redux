@@ -3,6 +3,8 @@ package com.d2.grail_server.model;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
+// Hibernate maps this model to the users table
+
 @Entity
 @Table(name = "users")
 public class User {

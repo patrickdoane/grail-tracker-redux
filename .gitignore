@@ -2,4 +2,9 @@ TODOS
 .project
 .vscode/
 env.properties
-
+.cache/
+.cache_ref/
+__pycache__/
+holy_grail_items.csv
+holy_grail_items.json
+official_reference.json

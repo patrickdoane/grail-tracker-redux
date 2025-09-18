@@ -5,15 +5,15 @@
     ✔ Save connection details in a `.env` file @done(25-08-19 08:18)
     ✔ Backup secrets somewhere secure @done(25-08-19 08:18)
 
-☐ Create database schema @started(25-08-19 08:26)
-  - Define models for the application @started(25-08-21 00:30)
-  - Use a migration tool to create the initial schema
-    - Run migrations to set up tables and relationships
-  - Verify schema by checking the database structure
+✔ Create database schema @started(25-08-19 08:26) @done(25-08-23 07:32) @lasted(3d23h6m35s)
+  ✔ Define models for the application @started(25-08-21 00:30) @done(25-08-23 07:32) @lasted(2d7h2m36s)
+  ✔ Use a migration tool to create the initial schema @done(25-08-23 07:32)
+    ✔ Run migrations to set up tables and relationships @done(25-08-23 07:32)
+  ✔ Verify schema by checking the database structure @done(25-08-23 07:32)
 
-☐ Seed the database with initial data from the provided CSV files
-  - Write scripts to read CSV files and insert data into the database
-  - Ensure data integrity and consistency during the seeding process
+☐ Seed the database with initial data from the provided CSV files @started(25-08-23 07:44)
+  - Write scripts to read CSV files and insert data into the database @started(25-09-18 15:12)
+  - Ensure data integrity and consistency during the seeding process @started(25-09-18 15:12)
   - Validate that the data has been correctly inserted by querying the database
 
 ☐ Implement basic CRUD operations for the main entities

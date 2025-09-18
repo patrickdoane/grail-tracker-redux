@@ -1,20 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Builds a frozen Diablo II: Resurrected Holy Grail reference list
-containing every Unique, Set piece, and Rune.
-Outputs: official_reference.json (items array with metadata)
-"""
+"""Build a frozen Diablo II: Resurrected Holy Grail reference list."""
 
-import json, time
+from __future__ import annotations
+
+import json
+import sys
+import time
+from collections import Counter
 from pathlib import Path
 
-# import your existing scraper’s functions:
-#   parse_all_set_items, parse_all_uniques, parse_runes, explode_rainbow_facet
-#   CacheConfig, soup_from_page_title, etc.
-from d2_holy_grail_scraper import (
-    CacheConfig, parse_all_set_items, parse_all_uniques,
-    parse_runes, explode_rainbow_facet, FANDOM_BASE, PAGE_TITLES, RUNE_LIST_URL
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from scripts.d2_holy_grail_scraper import (  # type: ignore  # runtime import
+    CacheConfig,
+    FANDOM_BASE,
+    PAGE_TITLES,
+    RUNE_LIST_URL,
+    explode_rainbow_facet,
+    parse_all_set_items,
+    parse_all_uniques,
+    parse_runes,
 )
 
 def main(include_sunders=True, facet_variants=True):
@@ -43,6 +51,12 @@ def main(include_sunders=True, facet_variants=True):
     runes = parse_runes(cache_cfg)
     rows.extend(runes)
 
+    totals = Counter(row.get("category", "Unknown") for row in rows)
+    unique_tiers = Counter((row.get("tier") or "Unknown") for row in rows if row.get("category") == "Unique")
+
+    # Normalise empty tier strings to "Unknown" for reporting
+    clean_unique_tiers = {tier or "Unknown": count for tier, count in unique_tiers.items()}
+
     payload = {
         "meta": {
             "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -60,7 +74,11 @@ def main(include_sunders=True, facet_variants=True):
             "options": {
                 "include_sunders": include_sunders,
                 "facet_variants": facet_variants,
-            }
+            },
+            "summary": {
+                "category_counts": dict(totals),
+                "unique_tiers": clean_unique_tiers,
+            },
         },
         "items": rows
     }

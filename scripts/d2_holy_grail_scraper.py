@@ -303,16 +303,73 @@ BASE_TYPE_EXCLUDES.update({
 
 _LINK_RE = re.compile(r"\[\[([^\]|#]+)(?:\|[^\]]+)?\]\]")
 
-def _wikitext_tables(wt: str) -> list[list[str]]:
-    """Split wikitext into table blocks (list of lines per table)."""
-    blocks, cur, in_table = [], [], False
-    for line in wt.splitlines():
+_TEMPLATE_TEXT_RE = re.compile(r"\{\{[^|{}]*\|([^{}|]+)(?:\|[^{}]*)?\}\}")
+
+
+def _table_header_labels(table) -> Dict[int, str]:
+    labels: Dict[int, str] = {}
+    for tr in table.find_all("tr"):
+        ths = tr.find_all("th")
+        if not ths:
+            continue
+        for idx, th in enumerate(ths):
+            labels[idx] = th.get_text(" ", strip=True).lower()
+        if labels:
+            break
+    return labels
+
+
+def _extract_base_type_from_cell(cell, unique_name: str) -> Optional[str]:
+    """Attempt to pull the base item type from a table cell."""
+    primary = (unique_name or "").strip().lower()
+
+    # Prefer the next anchor in the cell that isn't the unique name itself
+    for idx, link in enumerate(cell.find_all("a", href=True)):
+        label = extract_title_text(link)
+        if not label:
+            continue
+        if idx == 0 and label.strip().lower() == primary:
+            continue
+        if label.strip().lower() == primary:
+            continue
+        return label.strip()
+
+    # Fallback to text fragments split on line breaks
+    for part in cell.get_text("\n", strip=True).split("\n"):
+        cleaned = part.strip()
+        if not cleaned:
+            continue
+        if cleaned.lower() == primary:
+            continue
+        return cleaned
+
+    return None
+
+def _wikitext_tables(wt: str) -> list[tuple[list[str], Optional[str]]]:
+    """Split wikitext into table blocks and track the active tier heading."""
+    blocks: list[tuple[list[str], Optional[str]]] = []
+    cur: list[str] = []
+    in_table = False
+    current_tier: Optional[str] = None
+    table_tier: Optional[str] = None
+    for raw_line in wt.splitlines():
+        line = raw_line.rstrip()
+        stripped = line.strip()
+        if stripped.startswith("==") and stripped.endswith("=="):
+            tier = _tier_from_text(stripped.strip("=").strip())
+            current_tier = tier
         if line.startswith("{|"):
-            in_table = True; cur = [line]; continue
+            in_table = True
+            cur = [line]
+            table_tier = current_tier
+            continue
         if in_table:
             cur.append(line)
             if line.startswith("|}"):
-                in_table = False; blocks.append(cur); cur = []
+                in_table = False
+                blocks.append((cur, table_tier))
+                cur = []
+                table_tier = None
     return blocks
 
 def _wikitext_item_col_idx(lines: list[str]) -> int | None:
@@ -336,21 +393,28 @@ def _wikitext_item_col_idx(lines: list[str]) -> int | None:
 
 def _parse_uniques_from_wikitext(wikitext: str, category_hint: Optional[str], source_url: str) -> list[dict]:
     out = []
-    for tbl in _wikitext_tables(wikitext):
+    for tbl, table_tier in _wikitext_tables(wikitext):
         name_col = _wikitext_item_col_idx(tbl)
         if name_col is None:
             name_col = 0
         # iterate rows
-        row = []
+        row: list[str] = []
+        current_tier = table_tier
         for ln in tbl:
-            if ln.startswith("|-"):  # new row
+            if ln.startswith("|-"):
                 if row:
-                    out.extend(_emit_from_wt_row(row, name_col, category_hint, source_url))
+                    out.extend(_emit_from_wt_row(row, name_col, category_hint, source_url, current_tier))
                 row = []
-            else:
-                row.append(ln)
+                continue
+            stripped = ln.strip()
+            if stripped.startswith("!") and "colspan" in stripped:
+                tier_candidate = _tier_from_text(stripped)
+                if tier_candidate:
+                    current_tier = tier_candidate
+                continue
+            row.append(ln)
         if row:
-            out.extend(_emit_from_wt_row(row, name_col, category_hint, source_url))
+            out.extend(_emit_from_wt_row(row, name_col, category_hint, source_url, current_tier))
 
     # dedup by name
     seen = set(); dedup = []
@@ -360,7 +424,7 @@ def _parse_uniques_from_wikitext(wikitext: str, category_hint: Optional[str], so
             seen.add(k); dedup.append(it)
     return dedup
 
-def _emit_from_wt_row(lines: list[str], name_col: int, category_hint: Optional[str], source_url: str) -> list[dict]:
+def _emit_from_wt_row(lines: list[str], name_col: int, category_hint: Optional[str], source_url: str, tier: Optional[str]) -> list[dict]:
     # Combine, split cells on '||'
     text = "\n".join(lines)
     # Grab lines that begin with '|' and have cells
@@ -374,16 +438,43 @@ def _emit_from_wt_row(lines: list[str], name_col: int, category_hint: Optional[s
         return []
     if name_col >= len(cells):
         return []
-    first_link = _LINK_RE.search(cells[name_col] or "")
-    if not first_link:
+    cell_html = cells[name_col] or ""
+    link_names = [m.strip() for m in _LINK_RE.findall(cell_html)]
+    template_names = [m.strip() for m in _TEMPLATE_TEXT_RE.findall(cell_html)]
+
+    name = None
+    if link_names:
+        name = link_names[0]
+    elif template_names:
+        name = template_names[0]
+    if not name:
         return []
-    name = first_link.group(1).strip()
-    if not name or name.lower() in UNIQUES_EXCLUDE_TERMS:
+    if name.lower() in UNIQUES_EXCLUDE_TERMS:
         return []
+
+    base_type = None
+    candidates: list[str] = []
+    for cand in link_names[1:]:
+        if cand.lower() != name.lower():
+            candidates.append(cand)
+    for cand in template_names:
+        if cand.lower() != name.lower():
+            candidates.append(cand)
+    if candidates:
+        base_type = candidates[0]
+
+    if not base_type:
+        for part in re.split(r"<br\s*/?>", cell_html):
+            cleaned = BeautifulSoup(part, "lxml").get_text(strip=True)
+            if cleaned and cleaned.lower() != name.lower():
+                base_type = cleaned
+                break
+
     return [{
         "name": name,
         "category": "Unique",
-        "subcategory": category_hint or "Unknown",
+        "subcategory": base_type or category_hint or "Unknown",
+        "tier": tier or "",
         "source_url": source_url,
     }]
 
@@ -397,13 +488,26 @@ def parse_unique_table_like_page(page_title: str, cache_cfg: CacheConfig, catego
         return _parse_uniques_from_wikitext(pre.get_text(), category_hint, wiki_url(page_title))
 
     items: list[dict] = []
+    header_labels_cache: Dict[int, str] = {}
     for table in content.find_all("table"):
         # identify the name column
         name_col = _header_item_col_index(table)
         if name_col is None:
             name_col = 0  # sane fallback
 
+        header_labels_cache = _table_header_labels(table)
+        table_tier = _nearest_tier_for(table)
+        current_tier = table_tier
+
         for tr in table.find_all("tr"):
+            # adjust tier when tables embed their own section headers
+            ths = tr.find_all("th")
+            if ths and not tr.find_all("td"):
+                tier_candidate = _tier_from_text(" ".join(th.get_text(" ", strip=True) for th in ths))
+                if tier_candidate:
+                    current_tier = tier_candidate
+                continue
+
             tds = tr.find_all("td")
             if not tds:  # skip header-only rows
                 continue
@@ -418,10 +522,27 @@ def parse_unique_table_like_page(page_title: str, cache_cfg: CacheConfig, catego
             norm = (name or "").strip()
             if not norm or norm.lower() in UNIQUES_EXCLUDE_TERMS:
                 continue
+
+            base_type = _extract_base_type_from_cell(cell, norm)
+
+            if not base_type:
+                for idx, td in enumerate(tds):
+                    if idx == name_col:
+                        continue
+                    label = header_labels_cache.get(idx, "")
+                    if not label:
+                        continue
+                    if any(key in label for key in ("base", "item type", "weapon type", "armor type", "type")):
+                        fallback = _extract_base_type_from_cell(td, norm)
+                        if fallback:
+                            base_type = fallback
+                            break
+
             items.append({
                 "name": norm,
                 "category": "Unique",
-                "subcategory": category_hint or infer_subcategory_from_title(content),
+                "subcategory": base_type or category_hint or infer_subcategory_from_title(content),
+                "tier": current_tier or "",
                 "source_url": wiki_url(page_title),
             })
 
@@ -441,6 +562,7 @@ def parse_unique_table_like_page(page_title: str, cache_cfg: CacheConfig, catego
                         "name": txt,
                         "category": "Unique",
                         "subcategory": category_hint or infer_subcategory_from_title(content),
+                        "tier": "",
                         "source_url": wiki_url(page_title),
                     })
 
@@ -528,17 +650,24 @@ def parse_all_uniques(cache_cfg: CacheConfig) -> List[Dict]:
             dedup[key] = it
     return list(dedup.values())
 
+def _tier_from_text(text: str) -> str | None:
+    """Map a heading-like string to a gear tier."""
+    txt = (text or "").lower()
+    if "normal" in txt:
+        return "Normal"
+    if "exceptional" in txt or "exeptional" in txt:
+        return "Exceptional"
+    if "elite" in txt:
+        return "Elite"
+    return None
+
+
 def _nearest_tier_for(node) -> str | None:
     """Walk backwards from `node` to find the last h2/h3 and map to tier."""
     for prev in node.find_all_previous(["h2", "h3"]):
-        txt = (prev.get_text(" ", strip=True) or "").lower()
-        if "normal sets" in txt:
-            return "Normal"
-        if "exceptional sets" in txt or "exeptional sets" in txt:
-            return "Exceptional"
-        if "elite sets" in txt:
-            return "Elite"
-        # keep walking if it's some other header
+        tier = _tier_from_text(prev.get_text(" ", strip=True) or "")
+        if tier:
+            return tier
     return None
 
 def _parse_set_section(h, tier_label, source_url):

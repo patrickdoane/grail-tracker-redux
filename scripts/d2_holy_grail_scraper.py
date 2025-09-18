@@ -21,7 +21,6 @@ Flags:
 import argparse
 import csv
 import json
-import os
 import re
 import sys
 import time
@@ -84,6 +83,8 @@ RUNE_RE = re.compile(r"^(Eld|El|Tir|Nef|Eth|Ith|Tal|Ral|Ort|Thul|Amn|Sol|Shael|D
 # Session & Cache
 # ----------------------------
 def make_session() -> requests.Session:
+    """Create a configured HTTP session with retry/backoff behaviour."""
+
     s = requests.Session()
     retries = Retry(
         total=5,
@@ -105,24 +106,30 @@ class CacheConfig:
     refresh: bool
     delay_sec: float
 
+
 def ensure_cache_dir(path: Path):
+    """Create the cache directory if it does not yet exist."""
+
     path.mkdir(parents=True, exist_ok=True)
 
+
 def cache_file_for_title(cache_dir: Path, page_title: str, suffix: str = ".html") -> Path:
+    """Return a filesystem path for the cached representation of a page."""
+
     safe = re.sub(r"[^A-Za-z0-9_.()-]", "_", page_title)
     return cache_dir / f"{safe}{suffix}"
 
+
 def is_fresh(p: Path, ttl_hours: int) -> bool:
+    """Determine whether a cache entry is within its time-to-live window."""
+
     if not p.exists():
         return False
     age_sec = time.time() - p.stat().st_mtime
     return age_sec < ttl_hours * 3600
 
 def fandom_api_html(page_title: str, cache_cfg: CacheConfig) -> str:
-    """
-    Get rendered HTML via MediaWiki API (action=parse&prop=text).
-    Uses cache when available/fresh.
-    """
+    """Fetch rendered HTML for a wiki page, caching the response on disk."""
     ensure_cache_dir(cache_cfg.dir)
     cache_path = cache_file_for_title(cache_cfg.dir, page_title)
 
@@ -145,12 +152,14 @@ def fandom_api_html(page_title: str, cache_cfg: CacheConfig) -> str:
     return html
 
 def _jittered_sleep(base: float):
+    """Pause for a jittered interval to avoid hammering the API."""
+
     if base > 0:
         # ±30% jitter to avoid repeated identical intervals
         time.sleep(base * random.uniform(0.7, 1.3))
 
 def fandom_api_parse_html(page_title: str, cache_cfg: CacheConfig) -> str:
-    """Primary path: rendered HTML via action=parse (prop=text)."""
+    """Return rendered HTML using the MediaWiki parse endpoint."""
     ensure_cache_dir(cache_cfg.dir)
     cache_path = cache_file_for_title(cache_cfg.dir, page_title, suffix=".html")
 
@@ -214,7 +223,8 @@ def fandom_api_query_wikitext(page_title: str, cache_cfg: CacheConfig) -> str:
     return wikitext
 
 def soup_from_page_title(page_title: str, cache_cfg: CacheConfig) -> BeautifulSoup:
-    """Now uses HTML parse, with automatic fallback to wikitext→HTML-lite."""
+    """Return a BeautifulSoup tree for the requested page."""
+
     try:
         html = fandom_api_parse_html(page_title, cache_cfg)
         return BeautifulSoup(html, "lxml")
@@ -226,7 +236,10 @@ def soup_from_page_title(page_title: str, cache_cfg: CacheConfig) -> BeautifulSo
             return BeautifulSoup(f"<pre class='wikitext'>{BeautifulSoup(wt, 'lxml').get_text()}</pre>", "lxml")
         raise
 
+
 def wiki_url(page_title: str) -> str:
+    """Build a canonical wiki URL from a page title."""
+
     return urljoin(FANDOM_WIKI_PREFIX, page_title)
 
 def _header_item_col_index(table) -> int | None:
@@ -272,11 +285,15 @@ def _is_generic_link(a) -> bool:
 # Parsing helpers
 # ----------------------------
 def extract_title_text(a_tag) -> str:
+    """Return cleaned text content from a link, dropping footnote markers."""
+
     txt = (a_tag.get_text() or "").strip()
     txt = re.sub(r"\s+\[\d+\]$", "", txt)  # drop footnote markers
     return txt
 
 def infer_subcategory_from_title(soup: BeautifulSoup) -> str:
+    """Infer an item subcategory from the page title when tables lack context."""
+
     title = (soup.find("h1").get_text() if soup.find("h1") else "").strip()
     m = re.search(r"Unique\s+([A-Za-z ]+)", title)
     if m:
@@ -286,27 +303,14 @@ def infer_subcategory_from_title(soup: BeautifulSoup) -> str:
             return key
     return title or "Unknown"
 
-BASE_TYPE_EXCLUDES = {
-    "ring", "amulet", "grand charm", "small charm", "large charm",
-    "short sword", "sabre", "falchion", "broad sword", "long sword",
-    "war sword", "two-handed sword", "claymore", "giant sword", "bastard sword",
-}
-
-BASE_TYPE_EXCLUDES.update({
-    # bows
-    "short bow", "hunter's bow", "long bow", "composite bow", "short battle bow",
-    "long battle bow", "short war bow", "long war bow",
-    # polearms (examples)
-    "bardiche", "voulge", "scythe", "poleaxe", "halberd", "war scythe",
-    "partizan", "bec-de-corbin", "grim scythe",
-})
-
 _LINK_RE = re.compile(r"\[\[([^\]|#]+)(?:\|[^\]]+)?\]\]")
 
 _TEMPLATE_TEXT_RE = re.compile(r"\{\{[^|{}]*\|([^{}|]+)(?:\|[^{}]*)?\}\}")
 
 
 def _table_header_labels(table) -> Dict[int, str]:
+    """Return a mapping of header column indices to normalised labels."""
+
     labels: Dict[int, str] = {}
     for tr in table.find_all("tr"):
         ths = tr.find_all("th")
@@ -392,6 +396,8 @@ def _wikitext_item_col_idx(lines: list[str]) -> int | None:
     return None
 
 def _parse_uniques_from_wikitext(wikitext: str, category_hint: Optional[str], source_url: str) -> list[dict]:
+    """Parse a wikitext table block into unique item dictionaries."""
+
     out = []
     for tbl, table_tier in _wikitext_tables(wikitext):
         name_col = _wikitext_item_col_idx(tbl)
@@ -425,6 +431,8 @@ def _parse_uniques_from_wikitext(wikitext: str, category_hint: Optional[str], so
     return dedup
 
 def _emit_from_wt_row(lines: list[str], name_col: int, category_hint: Optional[str], source_url: str, tier: Optional[str]) -> list[dict]:
+    """Emit structured rows from a single wikitext table row."""
+
     # Combine, split cells on '||'
     text = "\n".join(lines)
     # Grab lines that begin with '|' and have cells
@@ -479,6 +487,8 @@ def _emit_from_wt_row(lines: list[str], name_col: int, category_hint: Optional[s
     }]
 
 def parse_unique_table_like_page(page_title: str, cache_cfg: CacheConfig, category_hint: Optional[str] = None) -> list[dict]:
+    """Parse a MediaWiki table page into structured unique item rows."""
+
     soup = soup_from_page_title(page_title, cache_cfg)
     content = soup
 
@@ -577,6 +587,8 @@ def parse_unique_table_like_page(page_title: str, cache_cfg: CacheConfig, catego
     return items
 
 def discover_unique_subpages(hub_title: str, cache_cfg: CacheConfig) -> List[str]:
+    """Discover Diablo II unique item list pages from a hub page."""
+
     soup = soup_from_page_title(hub_title, cache_cfg)
     content = soup
     prefer_d2, others = set(), set()
@@ -604,6 +616,8 @@ def discover_unique_subpages(hub_title: str, cache_cfg: CacheConfig) -> List[str
 # Top-level parsers
 # ----------------------------
 def parse_all_uniques(cache_cfg: CacheConfig) -> List[Dict]:
+    """Aggregate all unique item rows across armour/weapon hubs and direct pages."""
+
     collected: List[Dict] = []
     visited_titles = set()
 
@@ -886,6 +900,8 @@ def parse_runes(cache_cfg: CacheConfig, url: str = RUNE_LIST_URL) -> List[Dict]:
     return [{"name": n, "category": "Rune", "source_url": url} for n in canonical]
 
 def sanity_check_uniques(unique_rows: list[dict]):
+    """Warn if scraped unique rows still contain header/mechanics placeholders."""
+
     bad = [r for r in unique_rows if r["name"].lower() in UNIQUES_EXCLUDE_TERMS]
     if bad:
         examples = ", ".join(sorted({r["name"] for r in bad})[:8])
@@ -928,10 +944,14 @@ def explode_rainbow_facet(items: List[Dict]) -> List[Dict]:
 # Output
 # ----------------------------
 def write_json(path: str, payload: dict):
+    """Write the scraped payload to JSON with UTF-8 encoding."""
+
     with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
 def write_csv(path: str, rows: list):
+    """Write the scraped rows to CSV with a consistent column ordering."""
+
     fields = ["name", "category", "subcategory", "set_name", "tier", "variant", "source_url"]
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fields)
@@ -943,6 +963,8 @@ def write_csv(path: str, rows: list):
 # Main
 # ----------------------------
 def main():
+    """CLI entry point to produce Holy Grail CSV/JSON exports."""
+
     ap = argparse.ArgumentParser(description="Scrape Diablo II Holy Grail item lists (via MediaWiki API).")
     ap.add_argument("--out-json", default="holy_grail_items.json", help="Output JSON path")
     ap.add_argument("--out-csv", default="holy_grail_items.csv", help="Output CSV path")

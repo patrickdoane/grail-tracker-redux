@@ -26,6 +26,8 @@ from scripts.d2_holy_grail_scraper import (  # type: ignore  # runtime import
 )
 
 def main(include_sunders=True, facet_variants=True):
+    """Generate the frozen reference dataset from the live scraper."""
+
     cache_cfg = CacheConfig(
         dir=Path(".cache_ref"),
         ttl_hours=720,

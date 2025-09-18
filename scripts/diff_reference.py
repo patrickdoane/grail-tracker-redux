@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, Iterable, Tuple
 
@@ -21,6 +21,8 @@ KEY_FIELDS = ("name", "category", "subcategory", "set_name", "tier", "variant", 
 
 
 def load_items(path: Path) -> list[Dict[str, Any]]:
+    """Load item dictionaries from a JSON file or payload wrapper."""
+
     data = json.loads(path.read_text(encoding="utf-8"))
     if isinstance(data, dict) and "items" in data:
         return data["items"]
@@ -30,6 +32,8 @@ def load_items(path: Path) -> list[Dict[str, Any]]:
 
 
 def index_by_name(items: Iterable[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Index item dictionaries by lower-cased name."""
+
     idx: Dict[str, Dict[str, Any]] = {}
     for it in items:
         key = it.get("name", "").strip()
@@ -40,6 +44,8 @@ def index_by_name(items: Iterable[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
 
 
 def compare(current: Dict[str, Dict[str, Any]], reference: Dict[str, Dict[str, Any]]) -> Tuple[set[str], set[str], Dict[str, Dict[str, Tuple[Any, Any]]]]:
+    """Compare two item maps and return missing/extra/delta details."""
+
     current_names = set(current.keys())
     reference_names = set(reference.keys())
 
@@ -62,6 +68,8 @@ def compare(current: Dict[str, Dict[str, Any]], reference: Dict[str, Dict[str, A
 
 
 def summarize_counts(items: Dict[str, Dict[str, Any]]) -> Counter:
+    """Summarise category counts for quick at-a-glance totals."""
+
     c = Counter()
     for it in items.values():
         c[it.get("category", "Unknown")] += 1
@@ -69,6 +77,8 @@ def summarize_counts(items: Dict[str, Dict[str, Any]]) -> Counter:
 
 
 def format_section(title: str, entries: Iterable[str]) -> str:
+    """Format a bullet-style summary for missing/extra sections."""
+
     entries = list(entries)
     if not entries:
         return f"- {title}: none\n"
@@ -78,6 +88,8 @@ def format_section(title: str, entries: Iterable[str]) -> str:
 
 
 def main() -> None:
+    """CLI entry point for diffing Holy Grail JSON exports."""
+
     ap = argparse.ArgumentParser(description="Compare two Holy Grail JSON exports.")
     ap.add_argument("--current", type=Path, default=Path("holy_grail_items.json"))
     ap.add_argument("--reference", type=Path, default=Path("official_reference.json"))

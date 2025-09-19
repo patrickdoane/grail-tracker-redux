@@ -37,10 +37,43 @@
     - Document the deployment process for the database
 ☐ Finalize the project
   - Review all code and documentation
-    
+
     - Ensure all tasks are completed and tested
     - Prepare a final report summarizing the project
     - Conduct a code review with team members
     - Address any feedback and make necessary adjustments
     - Archive the project repository and documentation for future reference
-    - Celebrate the successful completion of the project!
+    - Celebrate the successful completion of the project! 
+☐ Establish mobile-first design system
+  - Define color palette tokens (charcoal base, ember orange, arcane teal, gilded bronze, parchment neutrals)
+  - Set up responsive typography scale with clamp() and select heading/body fonts
+  - Replace global styles with CSS reset, spacing scale, and dark-first theme variables
+☐ Build shared UI component library
+  - Implement Button, Card, Container/Stack/Grid primitives, and FilterChip variations
+  - Create ProgressRing, StatusBadge, and FloatingActionButton components with accessibility states
+  - Document component usage patterns for future Storybook or design tokens export
+☐ Replace Vite starter UI with grail dashboard shell
+  - Scaffold React Router layout with top app bar, optional bottom navigation, and responsive side rail
+  - Create hero progress card highlighting completion percentage and last logged drop
+  - Add quick action slots for "Add find" and data sync prompts
+☐ Build item browser experience
+  - Add search input and filter chips for rarity, slot, runeword, and mode with TanStack Query-backed data
+  - Design item row component with status toggles and expandable detail drawer for drop sources and variants
+  - Include floating action button for quick "Add find" logging with optimistic update flow
+☐ Create item detail view
+  - Implement hero banner with rarity ribbon, item art, and quick action buttons
+  - Add tabs/accordions for Overview, Drop Sources, Variants, and Notes with responsive collapse behaviour
+  - Wire external link button for wiki reference and track outbound analytics event
+☐ Implement Sets & Runewords page
+  - Build collection cards with progress bars, checklist modal/sheet, and assignment placeholders
+  - Support toggling between set and runeword views with filter chips and saved URL params
+  - Surface trading collaboration notes panel for future real-time sync
+☐ Develop statistics & insights page
+  - Display overall completion snapshot and rarity breakdown cards with responsive charts
+  - Prototype drop source heatmap and act progression timelines with lightweight SVG components
+  - Provide export/share controls for progress summaries (image + CSV)
+☐ Refresh settings & data management
+  - Organize sections for account, appearance, data, and onboarding with inline forms
+  - Add theme toggles (dark, light, high-contrast) and sync status indicators
+  - Outline import/export flows aligned with backend endpoints and offline safeguards
+

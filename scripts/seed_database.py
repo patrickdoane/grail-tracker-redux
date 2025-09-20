@@ -1,0 +1,207 @@
+#!/usr/bin/env python3
+"""Seed the Grail Tracker database from the generated CSV reference.
+
+Usage:
+    python scripts/seed_database.py --csv holy_grail_items.csv
+
+Requirements:
+    pip install psycopg[binary]
+
+By default the script reads database credentials from
+`grail-server/env.properties`, but you can override them via CLI flags.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+from typing import Dict
+
+import psycopg
+
+TRUNCATE_SQL = """
+TRUNCATE TABLE item_properties, item_sources, user_items, items RESTART IDENTITY;
+"""
+
+CREATE_STAGING_SQL = """
+CREATE TEMP TABLE staging_grail_items (
+    name text,
+    category text,
+    subcategory text,
+    set_name text,
+    tier text,
+    variant text,
+    source_url text
+);
+"""
+
+COPY_SQL = """
+COPY staging_grail_items (name, category, subcategory, set_name, tier, variant, source_url)
+FROM STDIN WITH (FORMAT csv, HEADER true, NULL '');
+"""
+
+INSERT_ITEMS_SQL = """
+INSERT INTO items (name, type, quality, rarity, description)
+SELECT DISTINCT
+    s.name,
+    NULLIF(s.subcategory, '') AS type,
+    NULLIF(s.category, '') AS quality,
+    NULLIF(s.tier, '') AS rarity,
+    NULLIF(s.variant, '') AS description
+FROM staging_grail_items s
+ORDER BY s.name;
+"""
+
+INSERT_PROPERTIES_SQL = """
+INSERT INTO item_properties (item_id, property_name, property_value)
+SELECT i.id, 'Set Name', s.set_name
+FROM staging_grail_items s
+JOIN items i ON lower(i.name) = lower(s.name)
+WHERE s.set_name <> '';
+"""
+
+INSERT_SOURCES_SQL = """
+INSERT INTO item_sources (item_id, source_type, source_name)
+SELECT DISTINCT i.id, 'wiki', s.source_url
+FROM staging_grail_items s
+JOIN items i ON lower(i.name) = lower(s.name)
+WHERE s.source_url <> '';
+"""
+
+COUNT_ITEMS_SQL = "SELECT count(*) FROM items;"
+
+
+def parse_env_file(env_path: Path) -> Dict[str, str]:
+    """Parse a simple key=value env file into a dictionary."""
+
+    data: Dict[str, str] = {}
+    if not env_path.exists():
+        raise FileNotFoundError(f"env file not found: {env_path}")
+
+    for raw_line in env_path.read_text().splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        data[key.strip()] = value.strip()
+    return data
+
+
+def build_connection_args(args: argparse.Namespace, env: Dict[str, str]) -> Dict[str, str]:
+    """Collect connection parameters from CLI flags or env properties."""
+
+    conn: Dict[str, str] = {}
+    conn["dbname"] = args.database or env.get("DB_DATABASE")
+    conn["user"] = args.user or env.get("DB_USER")
+    conn["password"] = args.password or env.get("DB_PASSWORD")
+    conn["host"] = args.host
+    conn["port"] = str(args.port)
+
+    missing = [key for key, value in conn.items() if value in (None, "")]
+    if missing:
+        raise ValueError(f"Missing connection values: {', '.join(missing)}")
+
+    return conn
+
+
+def seed_database(csv_path: Path, conn_args: Dict[str, str], dry_run: bool = False) -> int:
+    """Load the CSV into Postgres and return the number of items inserted."""
+
+    if not csv_path.exists():
+        raise FileNotFoundError(f"CSV file not found: {csv_path}")
+
+    if dry_run:
+        print("[dry-run] would connect with:")
+        for key, value in conn_args.items():
+            redacted = value if key != "password" else "********"
+            print(f"  {key}={redacted}")
+        print(f"[dry-run] would load from {csv_path}")
+        return 0
+
+    with psycopg.connect(**conn_args) as conn:
+        with conn.cursor() as cur:
+            print("Truncating existing grail data ...", flush=True)
+            cur.execute(TRUNCATE_SQL)
+
+            print("Creating staging table ...", flush=True)
+            cur.execute(CREATE_STAGING_SQL)
+
+            print(f"Copying {csv_path.name} into staging ...", flush=True)
+            with csv_path.open("r", encoding="utf-8") as fh:
+                if hasattr(cur, "copy_expert"):
+                    cur.copy_expert(COPY_SQL, fh)
+                else:
+                    # psycopg 3 provides the copy context manager API
+                    with cur.copy(COPY_SQL) as copy:
+                        copy.write(fh.read())
+
+            print("Inserting items ...", flush=True)
+            cur.execute(INSERT_ITEMS_SQL)
+
+            print("Linking set metadata ...", flush=True)
+            cur.execute(INSERT_PROPERTIES_SQL)
+
+            print("Linking source URLs ...", flush=True)
+            cur.execute(INSERT_SOURCES_SQL)
+
+            cur.execute(COUNT_ITEMS_SQL)
+            (count,) = cur.fetchone()
+
+        conn.commit()
+
+    return count
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Seed the grail database from CSV data.")
+    parser.add_argument(
+        "--csv",
+        type=Path,
+        default=Path("holy_grail_items.csv"),
+        help="Path to the CSV generated by the scraper (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--env-file",
+        type=Path,
+        default=Path("grail-server/env.properties"),
+        help="Path to the env.properties file with DB credentials.",
+    )
+    parser.add_argument("--host", default="localhost", help="Database host (default: %(default)s)")
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=5432,
+        help="Database port (default: %(default)s)",
+    )
+    parser.add_argument("--database", help="Override database name (defaults to env file)")
+    parser.add_argument("--user", help="Override database user (defaults to env file)")
+    parser.add_argument(
+        "--password", help="Override database password (defaults to env file)")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the actions without touching the database.",
+    )
+
+    args = parser.parse_args(argv)
+
+    env_values = parse_env_file(args.env_file)
+    conn_args = build_connection_args(args, env_values)
+
+    try:
+        inserted = seed_database(args.csv, conn_args, dry_run=args.dry_run)
+    except Exception as exc:  # pragma: no cover - prototype script
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    if not args.dry_run:
+        print(f"Seed complete. {inserted} items now in the database.")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

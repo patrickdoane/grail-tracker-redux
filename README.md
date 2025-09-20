@@ -62,7 +62,8 @@ A ground-up rebuild of the Diablo II Holy Grail tracker featuring a React (Vite)
    ```
 3. **Load data into Postgres**
    - Start the API once (`./mvnw spring-boot:run`) to let Hibernate create tables.
-  - Use `psql` to `\copy` from `holy_grail_items.csv` into a staging table, then populate `items`, `item_properties`, and `item_sources` (see `AGENTS.md` for a ready-to-run SQL block).
+   - Run `python scripts/seed_database.py --csv holy_grail_items.csv` to load the dataset using the credentials in `grail-server/env.properties`.
+   - Alternatively, use `psql` to `\copy` from `holy_grail_items.csv` into a staging table, then populate `items`, `item_properties`, and `item_sources` (see `AGENTS.md` for a ready-to-run SQL block).
 
 ## Formatting & Hooks
 

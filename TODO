@@ -11,10 +11,10 @@
     ✔ Run migrations to set up tables and relationships @done(25-08-23 07:32)
   ✔ Verify schema by checking the database structure @done(25-08-23 07:32)
 
-☐ Seed the database with initial data from the provided CSV files @started(25-08-23 07:44)
-  - Write scripts to read CSV files and insert data into the database @started(25-09-18 15:12)
-  - Ensure data integrity and consistency during the seeding process @started(25-09-18 15:12)
-  - Validate that the data has been correctly inserted by querying the database
+✔ Seed the database with initial data from the provided CSV files @started(25-08-23 07:44) @done(25-09-20 16:00) @lasted(4w8h16m55s)
+  ✔ Write scripts to read CSV files and insert data into the database @started(25-09-18 15:12) @done(25-09-20 16:00) @lasted(2d48m56s)
+  ✔ Ensure data integrity and consistency during the seeding process @started(25-09-18 15:12) @done(25-09-20 16:00) @lasted(2d48m56s)
+  ✔ Validate that the data has been correctly inserted by querying the database @done(25-09-20 16:00)
 
 ☐ Implement basic CRUD operations for the main entities
   - Create endpoints for creating, reading, updating, and deleting records

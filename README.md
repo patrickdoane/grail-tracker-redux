@@ -44,11 +44,23 @@ A ground-up rebuild of the Diablo II Holy Grail tracker featuring a React (Vite)
   cd grail-server
   ./mvnw spring-boot:run
   ```
-- **Backend tests**
+- **Backend tests (H2 in-memory profile)**
   ```bash
   cd grail-server
   ./mvnw test
   ```
+
+## API Endpoints
+
+All routes live under the `/api` prefix. Sample payloads are JSON.
+
+- `GET /api/items` – list items; `POST /api/items` creates an item; `PUT /api/items/{id}` updates; `DELETE /api/items/{id}` removes.
+- `GET /api/item-properties?itemId={id}` – list properties (optionally filtered); `POST /api/item-properties` adds a property for an item.
+- `GET /api/item-sources?itemId={id}` – list external sources; `POST /api/item-sources` adds a source for an item.
+- `GET /api/users` – list users; `POST /api/users` creates a user (expects `username`, `email`, `passwordHash`).
+- `GET /api/user-items?userId={id}` – list finds for a user; `POST /api/user-items` logs a new find with optional `foundAt` and `notes`.
+
+All endpoints support `GET /{id}` for lookups and `DELETE /{id}` for removal. Validation errors return HTTP 400 with field-level messages, missing resources return HTTP 404, and duplicate usernames/emails return HTTP 409.
 
 ## Data & Seeding Workflow
 
@@ -81,4 +93,4 @@ A ground-up rebuild of the Diablo II Holy Grail tracker featuring a React (Vite)
 
 - Generated CSV/JSON and scraper caches are ignored via `.gitignore`.
 - Follow the guidelines in `AGENTS.md` and `scripts/AGENTS.md` for detailed conventions, coding standards, and seeding instructions.
-- Future enhancements include REST controllers, frontend integration, and automated tests for the scraping pipeline.
+- Future enhancements focus on richer frontend experiences (dashboard shell, item browser), deeper analytics, and automated tests for the scraping pipeline.

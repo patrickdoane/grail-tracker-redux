@@ -62,7 +62,19 @@ A ground-up rebuild of the Diablo II Holy Grail tracker featuring a React (Vite)
    ```
 3. **Load data into Postgres**
    - Start the API once (`./mvnw spring-boot:run`) to let Hibernate create tables.
-   - Use `psql` to `\copy` from `holy_grail_items.csv` into a staging table, then populate `items`, `item_properties`, and `item_sources` (see `AGENTS.md` for a ready-to-run SQL block).
+  - Use `psql` to `\copy` from `holy_grail_items.csv` into a staging table, then populate `items`, `item_properties`, and `item_sources` (see `AGENTS.md` for a ready-to-run SQL block).
+
+## Formatting & Hooks
+
+- Install Git hooks once:
+  ```bash
+  pip install pre-commit
+  pre-commit install
+  ```
+- Hooks run on commit:
+  - `ruff` auto-formats/checks Python scripts.
+  - `npm --prefix grail-client run lint` checks the React codebase.
+  - `./mvnw -q spotless:apply` keeps the Spring Boot code in Google Java Format.
 
 ## Additional Notes
 

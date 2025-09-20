@@ -1,0 +1,27 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.8
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+        types: [python]
+      - id: ruff-format
+        types: [python]
+  - repo: local
+    hooks:
+      - id: grail-client-lint
+        name: grail-client lint
+        entry: npm
+        args: ["--prefix", "grail-client", "run", "lint"]
+        language: system
+        types_or: [javascript, jsx, ts, tsx]
+        pass_filenames: false
+      - id: grail-server-spotless
+        name: grail-server spotless apply
+        entry: bash
+        args:
+          - "-lc"
+          - "cd grail-server && ./mvnw -Dmaven.repo.local=.m2 -q com.diffplug.spotless:spotless-maven-plugin:2.44.0:apply"
+        language: system
+        files: ^grail-server/
+        pass_filenames: false

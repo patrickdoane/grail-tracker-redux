@@ -8,3 +8,4 @@ __pycache__/
 holy_grail_items.csv
 holy_grail_items.json
 official_reference.json
+grail-server/.m2/

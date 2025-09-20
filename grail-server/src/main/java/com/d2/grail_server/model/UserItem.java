@@ -8,61 +8,60 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "user_items")
 public class UserItem {
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-	@ManyToOne
-	@JoinColumn(name = "user_id", nullable = false)
-	private User user;
+  @ManyToOne
+  @JoinColumn(name = "user_id", nullable = false)
+  private User user;
 
-	@ManyToOne
-	@JoinColumn(name = "item_id", nullable = false)
-	private Item item;
+  @ManyToOne
+  @JoinColumn(name = "item_id", nullable = false)
+  private Item item;
 
-	@Column(nullable = false)
-	private LocalDateTime foundAt = LocalDateTime.now();
+  @Column(nullable = false)
+  private LocalDateTime foundAt = LocalDateTime.now();
 
-	private String notes;
+  private String notes;
 
-	public Long getId() {
-		return id;
-	}
+  public Long getId() {
+    return id;
+  }
 
-	public void setId(Long id) {
-		this.id = id;
-	}
+  public void setId(Long id) {
+    this.id = id;
+  }
 
-	public User getUser() {
-		return user;
-	}
+  public User getUser() {
+    return user;
+  }
 
-	public void setUser(User user) {
-		this.user = user;
-	}
+  public void setUser(User user) {
+    this.user = user;
+  }
 
-	public Item getItem() {
-		return item;
-	}
+  public Item getItem() {
+    return item;
+  }
 
-	public void setItem(Item item) {
-		this.item = item;
-	}
+  public void setItem(Item item) {
+    this.item = item;
+  }
 
-	public LocalDateTime getFoundAt() {
-		return foundAt;
-	}
+  public LocalDateTime getFoundAt() {
+    return foundAt;
+  }
 
-	public void setFoundAt(LocalDateTime foundAt) {
-		this.foundAt = foundAt;
-	}
+  public void setFoundAt(LocalDateTime foundAt) {
+    this.foundAt = foundAt;
+  }
 
-	public String getNotes() {
-		return notes;
-	}
+  public String getNotes() {
+    return notes;
+  }
 
-	public void setNotes(String notes) {
-		this.notes = notes;
-	}
-
+  public void setNotes(String notes) {
+    this.notes = notes;
+  }
 }

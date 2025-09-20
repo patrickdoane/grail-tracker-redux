@@ -7,47 +7,46 @@ import jakarta.persistence.*;
 @Entity
 @Table(name = "item_sources")
 public class ItemSource {
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-	@ManyToOne
-	@JoinColumn(name = "item_id", nullable = false)
-	private Item item;
+  @ManyToOne
+  @JoinColumn(name = "item_id", nullable = false)
+  private Item item;
 
-	private String sourceType;
-	private String sourceName;
+  private String sourceType;
+  private String sourceName;
 
-	public Long getId() {
-		return id;
-	}
+  public Long getId() {
+    return id;
+  }
 
-	public void setId(Long id) {
-		this.id = id;
-	}
+  public void setId(Long id) {
+    this.id = id;
+  }
 
-	public Item getItem() {
-		return item;
-	}
+  public Item getItem() {
+    return item;
+  }
 
-	public void setItem(Item item) {
-		this.item = item;
-	}
+  public void setItem(Item item) {
+    this.item = item;
+  }
 
-	public String getSourceType() {
-		return sourceType;
-	}
+  public String getSourceType() {
+    return sourceType;
+  }
 
-	public void setSourceType(String sourceType) {
-		this.sourceType = sourceType;
-	}
+  public void setSourceType(String sourceType) {
+    this.sourceType = sourceType;
+  }
 
-	public String getSourceName() {
-		return sourceName;
-	}
+  public String getSourceName() {
+    return sourceName;
+  }
 
-	public void setSourceName(String sourceName) {
-		this.sourceName = sourceName;
-	}
-
+  public void setSourceName(String sourceName) {
+    this.sourceName = sourceName;
+  }
 }

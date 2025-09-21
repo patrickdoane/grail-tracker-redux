@@ -26,17 +26,17 @@
 ✔ Replace Vite starter UI with grail data connectivity prototype @done(25-09-24 09:45)
   - Render items fetched from `/api/items` to validate client-backend wiring @done(25-09-24 09:45)
 
-☐ Establish mobile-first design system
-  - Lock in palette tokens (charcoal, ember, teal, bronze, parchment) and typography scale
-  - Extend global styles with spacing scale and dark-first theme variables
+✔ Establish mobile-first design system @done(25-09-24 10:45)
+  ✔ Lock in palette tokens (charcoal, ember, teal, bronze, parchment) and typography scale @done(25-09-24 10:45)
+  ✔ Extend global styles with spacing scale and dark-first theme variables @done(25-09-24 10:45)
 ☐ Build shared UI component library
   - Implement Button, Card, Container/Stack/Grid, and FilterChip primitives
   - Add ProgressRing, StatusBadge, and FloatingActionButton with accessible states
   - Document usage patterns for future Storybook/design tokens export
-☐ Scaffold grail dashboard shell
-  - Introduce React Router layout with top app bar, responsive rail, and route slots
-  - Move the prototype items view into the dashboard content region
-  - Add placeholder navigation for browser, detail, stats, and settings screens
+✔ Scaffold grail dashboard shell @done(25-09-21 17:41)
+  ✔ Introduce React Router layout with top app bar, responsive rail, and route slots @done(25-09-21 17:41)
+  ✔ Move the prototype items view into the dashboard content region @done(25-09-21 17:41)
+  ✔ Add placeholder navigation for browser, detail, stats, and settings screens @done(25-09-21 17:41)
 ☐ Establish frontend data layer
   - Extract typed API client wrapper around `fetch` with shared error handling
   - Introduce TanStack Query (or similar) for caching and background refresh

@@ -23,63 +23,53 @@
   - Use a testing framework to write unit and integration tests
     ✔ Create test cases for the CRUD operations (CrudIntegrationTests) @done(25-09-24 09:30)
     ✔ Run tests to ensure functionality and catch any bugs early @done(25-09-24 09:30)
-☐ Document the setup and usage of the database
-  - Write a README file with instructions on how to set up the database
-  - Include details on how to run migrations and seed the database
-  - Provide examples of API requests for CRUD operations
-☐ Review and optimize database performance
-    - Analyze query performance and optimize slow queries
-    - Consider indexing frequently queried fields
-    - Monitor database performance metrics and adjust configurations as needed
-☐ Prepare for deployment
-  - Ensure the database is secure and accessible only to authorized users
-    - Backup the database before deployment
-    - Document the deployment process for the database
-☐ Finalize the project
-  - Review all code and documentation
-
-    - Ensure all tasks are completed and tested
-    - Prepare a final report summarizing the project
-    - Conduct a code review with team members
-    - Address any feedback and make necessary adjustments
-    - Archive the project repository and documentation for future reference
-    - Celebrate the successful completion of the project! 
-☐ Establish mobile-first design system
-  - Define color palette tokens (charcoal base, ember orange, arcane teal, gilded bronze, parchment neutrals)
-  - Set up responsive typography scale with clamp() and select heading/body fonts
-  - Replace global styles with CSS reset, spacing scale, and dark-first theme variables
-☐ Build shared UI component library
-  - Implement Button, Card, Container/Stack/Grid primitives, and FilterChip variations
-  - Create ProgressRing, StatusBadge, and FloatingActionButton components with accessibility states
-  - Document component usage patterns for future Storybook or design tokens export
 ✔ Replace Vite starter UI with grail data connectivity prototype @done(25-09-24 09:45)
   - Render items fetched from `/api/items` to validate client-backend wiring @done(25-09-24 09:45)
 
+☐ Establish mobile-first design system
+  - Lock in palette tokens (charcoal, ember, teal, bronze, parchment) and typography scale
+  - Extend global styles with spacing scale and dark-first theme variables
+☐ Build shared UI component library
+  - Implement Button, Card, Container/Stack/Grid, and FilterChip primitives
+  - Add ProgressRing, StatusBadge, and FloatingActionButton with accessible states
+  - Document usage patterns for future Storybook/design tokens export
 ☐ Scaffold grail dashboard shell
   - Introduce React Router layout with top app bar, responsive rail, and route slots
   - Move the prototype items view into the dashboard content region
-  - Add placeholder navigation for future screens (browser, detail, stats, settings)
+  - Add placeholder navigation for browser, detail, stats, and settings screens
 ☐ Establish frontend data layer
   - Extract typed API client wrapper around `fetch` with shared error handling
-  - Introduce TanStack Query (or similar) for caching and suspense-friendly hooks
+  - Introduce TanStack Query (or similar) for caching and background refresh
   - Surface request failures via inline toasts and retry affordances
 ☐ Build item browser experience
-  - Add search input and filter chips for rarity, slot, runeword, and mode with TanStack Query-backed data
-  - Design item row component with status toggles and expandable detail drawer for drop sources and variants
-  - Include floating action button for quick "Add find" logging with optimistic update flow
+  - Add search input and filter chips for rarity, slot, runeword, and mode
+  - Design item row component with status toggles and expandable detail drawer
+  - Include floating action button for quick "Add find" logging with optimistic updates
 ☐ Create item detail view
   - Implement hero banner with rarity ribbon, item art, and quick action buttons
-  - Add tabs/accordions for Overview, Drop Sources, Variants, and Notes with responsive collapse behaviour
-  - Wire external link button for wiki reference and track outbound analytics event
+  - Add Overview, Drop Sources, Variants, and Notes tabs/accordions with responsive collapse
+  - Wire external wiki link and track outbound analytics event
 ☐ Implement Sets & Runewords page
-  - Build collection cards with progress bars, checklist modal/sheet, and assignment placeholders
-  - Support toggling between set and runeword views with filter chips and saved URL params
+  - Build collection cards with progress bars and checklist modal/sheet
+  - Support toggling between set/runeword views with filter chips and saved URL params
   - Surface trading collaboration notes panel for future real-time sync
 ☐ Develop statistics & insights page
-  - Display overall completion snapshot and rarity breakdown cards with responsive charts
-  - Prototype drop source heatmap and act progression timelines with lightweight SVG components
+  - Display completion snapshot and rarity breakdown cards with responsive charts
+  - Prototype drop-source heatmap and act progression timelines (lightweight SVG)
   - Provide export/share controls for progress summaries (image + CSV)
 ☐ Refresh settings & data management
-  - Organize sections for account, appearance, data, and onboarding with inline forms
+  - Organize account, appearance, data, and onboarding sections with inline forms
   - Add theme toggles (dark, light, high-contrast) and sync status indicators
   - Outline import/export flows aligned with backend endpoints and offline safeguards
+☐ Document database setup and API usage
+  - Expand README with Postgres install, migrations/seed instructions, and env guidance
+  - Add sample API requests covering CRUD flows and filtering
+☐ Review and optimize database performance
+  - Analyze key queries, add indexes where needed, and baseline metrics
+  - Monitor for slow queries once item browser filters ship
+☐ Prepare for deployment
+  - Lock down database access, configure backups, and capture deployment runbook
+  - Validate client/server build pipelines and environment variables
+☐ Finalize the project
+  - Perform end-to-end QA, close documentation gaps, and collect feedback
+  - Conduct final code review, address findings, and archive artifacts

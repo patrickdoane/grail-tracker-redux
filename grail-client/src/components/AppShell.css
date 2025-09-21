@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  background: var(--surface-base);
 }
 
 .app-bar {
@@ -11,68 +12,70 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1.5rem;
-  padding: 1rem clamp(1.25rem, 4vw, 2.5rem);
+  gap: var(--space-lg);
+  padding: var(--space-sm) clamp(1.25rem, 4vw, 2.5rem);
   border-bottom: 1px solid var(--border-subtle);
-  background: var(--surface);
+  background: var(--surface-elevated);
   backdrop-filter: blur(14px);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
+  box-shadow: var(--shadow-lg);
 }
 
 .app-bar__brand {
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: var(--space-xs);
 }
 
 .app-bar__title {
-  font-size: 1.1rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .app-bar__subtitle {
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
   color: var(--text-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .app-bar__nav {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-sm);
 }
 
 .app-bar__link {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.45rem 0.9rem;
-  border-radius: 999px;
+  gap: var(--space-2xs);
+  padding: calc(var(--space-xs) * 0.9) var(--space-sm);
+  border-radius: var(--radius-full);
   color: var(--text-muted);
-  font-size: 0.95rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   text-decoration: none;
-  transition: background 200ms ease, color 200ms ease;
+  transition: background var(--transition-base), color var(--transition-base), box-shadow var(--transition-base);
 }
 
 .app-bar__link:hover {
-  background: rgba(125, 211, 252, 0.12);
-  color: #bae6fd;
+  background: rgba(56, 189, 248, 0.14);
+  color: var(--color-arcane-300);
 }
 
 .app-bar__link--active {
-  background: linear-gradient(135deg, rgba(125, 211, 252, 0.2), rgba(244, 114, 182, 0.2));
-  color: #e0f2fe;
-  box-shadow: inset 0 0 0 1px rgba(125, 211, 252, 0.3);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(249, 115, 22, 0.18));
+  color: var(--color-parchment-50);
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.32);
 }
 
 .app-shell__main {
   flex: 1;
   display: flex;
   justify-content: center;
-  padding: clamp(1.5rem, 4vw, 3rem);
+  padding: clamp(var(--space-md), 4vw, var(--space-2xl));
 }
 
 .app-shell__content {
@@ -83,16 +86,18 @@
   .app-bar {
     flex-direction: column;
     align-items: stretch;
-    gap: 1rem;
+    gap: var(--space-sm);
+    padding-block: var(--space-sm);
   }
 
   .app-bar__nav {
     justify-content: space-between;
     flex-wrap: wrap;
+    gap: var(--space-xs);
   }
 
   .app-bar__link {
-    flex: 1 1 auto;
+    flex: 1 1 calc(50% - var(--space-xs));
     justify-content: center;
   }
 }

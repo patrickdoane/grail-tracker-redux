@@ -16,13 +16,13 @@
   ✔ Ensure data integrity and consistency during the seeding process @started(25-09-18 15:12) @done(25-09-20 16:00) @lasted(2d48m56s)
   ✔ Validate that the data has been correctly inserted by querying the database @done(25-09-20 16:00)
 
-☐ Implement basic CRUD operations for the main entities
-  - Create endpoints for creating, reading, updating, and deleting records
-    - Test each endpoint to ensure they work as expected
-☐ Set up a development environment for testing
+✔ Implement basic CRUD operations for the main entities @done(25-09-20 16:46)
+  ✔ Create endpoints for creating, reading, updating, and deleting records @done(25-09-20 16:46)
+    ✔ Test each endpoint to ensure they work as expected @done(25-09-24 09:30)
+✔ Set up a development environment for testing @done(25-09-24 09:30)
   - Use a testing framework to write unit and integration tests
-    - Create test cases for the CRUD operations
-    - Run tests to ensure functionality and catch any bugs early
+    ✔ Create test cases for the CRUD operations (CrudIntegrationTests) @done(25-09-24 09:30)
+    ✔ Run tests to ensure functionality and catch any bugs early @done(25-09-24 09:30)
 ☐ Document the setup and usage of the database
   - Write a README file with instructions on how to set up the database
   - Include details on how to run migrations and seed the database
@@ -52,10 +52,17 @@
   - Implement Button, Card, Container/Stack/Grid primitives, and FilterChip variations
   - Create ProgressRing, StatusBadge, and FloatingActionButton components with accessibility states
   - Document component usage patterns for future Storybook or design tokens export
-☐ Replace Vite starter UI with grail dashboard shell
-  - Scaffold React Router layout with top app bar, optional bottom navigation, and responsive side rail
-  - Create hero progress card highlighting completion percentage and last logged drop
-  - Add quick action slots for "Add find" and data sync prompts
+✔ Replace Vite starter UI with grail data connectivity prototype @done(25-09-24 09:45)
+  - Render items fetched from `/api/items` to validate client-backend wiring @done(25-09-24 09:45)
+
+☐ Scaffold grail dashboard shell
+  - Introduce React Router layout with top app bar, responsive rail, and route slots
+  - Move the prototype items view into the dashboard content region
+  - Add placeholder navigation for future screens (browser, detail, stats, settings)
+☐ Establish frontend data layer
+  - Extract typed API client wrapper around `fetch` with shared error handling
+  - Introduce TanStack Query (or similar) for caching and suspense-friendly hooks
+  - Surface request failures via inline toasts and retry affordances
 ☐ Build item browser experience
   - Add search input and filter chips for rarity, slot, runeword, and mode with TanStack Query-backed data
   - Design item row component with status toggles and expandable detail drawer for drop sources and variants
@@ -76,4 +83,3 @@
   - Organize sections for account, appearance, data, and onboarding with inline forms
   - Add theme toggles (dark, light, high-contrast) and sync status indicators
   - Outline import/export flows aligned with backend endpoints and offline safeguards
-

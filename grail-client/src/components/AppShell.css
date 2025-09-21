@@ -1,0 +1,98 @@
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1rem clamp(1.25rem, 4vw, 2.5rem);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
+}
+
+.app-bar__brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.app-bar__title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.app-bar__subtitle {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.app-bar__nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.app-bar__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 200ms ease, color 200ms ease;
+}
+
+.app-bar__link:hover {
+  background: rgba(125, 211, 252, 0.12);
+  color: #bae6fd;
+}
+
+.app-bar__link--active {
+  background: linear-gradient(135deg, rgba(125, 211, 252, 0.2), rgba(244, 114, 182, 0.2));
+  color: #e0f2fe;
+  box-shadow: inset 0 0 0 1px rgba(125, 211, 252, 0.3);
+}
+
+.app-shell__main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: clamp(1.5rem, 4vw, 3rem);
+}
+
+.app-shell__content {
+  width: min(960px, 100%);
+}
+
+@media (max-width: 720px) {
+  .app-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .app-bar__nav {
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .app-bar__link {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}

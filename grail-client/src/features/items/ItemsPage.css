@@ -27,8 +27,60 @@
   min-width: 5.5rem;
 }
 
-.items-page__filters {
-  margin-top: var(--space-xs);
+.items-page__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+  margin-bottom: var(--space-sm);
+}
+
+.items-page__search {
+  position: relative;
+  flex: 1 1 16rem;
+}
+
+.items-page__search-input {
+  width: 100%;
+  padding: calc(var(--space-sm) * 0.85) var(--space-md);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.items-page__search-input:focus {
+  outline: none;
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+}
+
+.items-page__filters-grid {
+  display: grid;
+  gap: var(--space-lg);
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+.items-page__filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.items-page__filter-heading {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.items-page__chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
 }
 
 .items-page__status-card {
@@ -46,6 +98,17 @@
 
 .items-page__item-card {
   height: 100%;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.items-page__item-card--selected {
+  box-shadow: 0 18px 40px rgba(14, 165, 233, 0.25);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+}
+
+.items-page__item-card--found {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.06), rgba(15, 23, 42, 0.92));
 }
 
 .items-page__item-content {
@@ -84,11 +147,35 @@
   font-size: var(--font-size-sm);
 }
 
+.items-page__item-details {
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  border-top: 1px solid var(--border-subtle);
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.items-page__more-info {
+  margin: 0 0 var(--space-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
 .items-page__fab {
   position: fixed;
   bottom: var(--space-xl);
   right: var(--space-xl);
   z-index: 20;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (max-width: 768px) {

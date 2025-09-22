@@ -37,14 +37,14 @@
   ✔ Introduce React Router layout with top app bar, responsive rail, and route slots @done(25-09-21 17:41)
   ✔ Move the prototype items view into the dashboard content region @done(25-09-21 17:41)
   ✔ Add placeholder navigation for browser, detail, stats, and settings screens @done(25-09-21 17:41)
-☐ Establish frontend data layer
-  - Extract typed API client wrapper around `fetch` with shared error handling
-  - Introduce TanStack Query (or similar) for caching and background refresh
-  - Surface request failures via inline toasts and retry affordances
-☐ Build item browser experience
-  - Add search input and filter chips for rarity, slot, runeword, and mode
-  - Design item row component with status toggles and expandable detail drawer
-  - Include floating action button for quick "Add find" logging with optimistic updates
+✔ Establish frontend data layer @started(25-09-25 09:05) @done(25-09-25 10:20) @lasted(1h15m)
+  ✔ Extract typed API client wrapper around `fetch` with shared error handling @done(25-09-25 10:05)
+  ✔ Introduce TanStack Query (or similar) for caching and background refresh @done(25-09-25 10:10)
+  ✔ Surface request failures via inline toasts and retry affordances @done(25-09-25 10:15)
+✔ Build item browser experience @started(25-09-25 10:30) @done(25-09-25 11:45) @lasted(1h15m)
+  ✔ Add search input and filter chips for rarity, slot, runeword, and mode @done(25-09-25 11:20)
+  ✔ Design item row component with status toggles and expandable detail drawer @done(25-09-25 11:35)
+  ✔ Include floating action button for quick "Add find" logging with optimistic updates @done(25-09-25 11:40)
 ☐ Create item detail view
   - Implement hero banner with rarity ribbon, item art, and quick action buttons
   - Add Overview, Drop Sources, Variants, and Notes tabs/accordions with responsive collapse

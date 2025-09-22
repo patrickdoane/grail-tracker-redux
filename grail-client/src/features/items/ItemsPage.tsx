@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import {
   Button,
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
   Container,
@@ -15,6 +17,7 @@ import {
   type StatusBadgeVariant,
   FloatingActionButton,
 } from '../../components/ui'
+import { classNames } from '../../lib/classNames'
 import { getApiErrorMessage } from '../../lib/apiClient'
 import { useItemsQuery } from './useItemsQuery'
 import type { Item } from './itemsApi'
@@ -24,10 +27,33 @@ const CATALOGUE_ESTIMATE = 500
 
 type RarityFilter = 'all' | string
 
+const isRuneword = (item: Item) => {
+  const value = [item.quality, item.type, item.description]
+    .filter(Boolean)
+    .map((entry) => entry!.toLowerCase())
+    .join(' ')
+  return value.includes('runeword')
+}
+
+type LogFindVariables = {
+  itemId: number
+  found: boolean
+}
+
+type LogFindContext = {
+  previous: Set<number>
+}
+
 function ItemsPage() {
   const [rarityFilter, setRarityFilter] = useState<RarityFilter>('all')
-  const itemsQuery = useItemsQuery()
+  const [qualityFilter, setQualityFilter] = useState<RarityFilter>('all')
+  const [versionFilter, setVersionFilter] = useState<RarityFilter>('all')
+  const [showRunewordsOnly, setShowRunewordsOnly] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
+  const [foundItemIds, setFoundItemIds] = useState<Set<number>>(() => new Set())
 
+  const itemsQuery = useItemsQuery()
   const items: Item[] = itemsQuery.data ?? []
 
   const rarityOptions = useMemo(() => {
@@ -40,12 +66,65 @@ function ItemsPage() {
     return Array.from(values).sort((a, b) => a.localeCompare(b))
   }, [items])
 
+  const qualityOptions = useMemo(() => {
+    const values = new Set<string>()
+    items.forEach((item) => {
+      if (item.quality) {
+        values.add(item.quality)
+      }
+    })
+    return Array.from(values).sort((a, b) => a.localeCompare(b))
+  }, [items])
+
+  const versionOptions = useMemo(() => {
+    const values = new Set<string>()
+    items.forEach((item) => {
+      if (item.d2Version) {
+        values.add(item.d2Version)
+      }
+    })
+    return Array.from(values).sort((a, b) => a.localeCompare(b))
+  }, [items])
+
+  const searchTermLower = searchTerm.trim().toLowerCase()
+
   const filteredItems: Item[] = useMemo(() => {
-    if (rarityFilter === 'all') {
-      return items
+    return items.filter((item) => {
+      if (searchTermLower) {
+        const haystack = [item.name, item.type, item.description, item.quality, item.d2Version]
+          .filter(Boolean)
+          .map((entry) => entry!.toLowerCase())
+          .join(' ')
+        if (!haystack.includes(searchTermLower)) {
+          return false
+        }
+      }
+
+      if (rarityFilter !== 'all' && item.rarity?.toLowerCase() !== rarityFilter.toLowerCase()) {
+        return false
+      }
+
+      if (qualityFilter !== 'all' && item.quality?.toLowerCase() !== qualityFilter.toLowerCase()) {
+        return false
+      }
+
+      if (versionFilter !== 'all' && item.d2Version?.toLowerCase() !== versionFilter.toLowerCase()) {
+        return false
+      }
+
+      if (showRunewordsOnly && !isRuneword(item)) {
+        return false
+      }
+
+      return true
+    })
+  }, [items, qualityFilter, rarityFilter, searchTermLower, showRunewordsOnly, versionFilter])
+
+  useEffect(() => {
+    if (selectedItemId && !filteredItems.some((item) => item.id === selectedItemId)) {
+      setSelectedItemId(null)
     }
-    return items.filter((item) => item.rarity?.toLowerCase() === rarityFilter.toLowerCase())
-  }, [items, rarityFilter])
+  }, [filteredItems, selectedItemId])
 
   const catalogueMax = Math.max(items.length, CATALOGUE_ESTIMATE)
   const completionValue = items.length
@@ -67,6 +146,33 @@ function ItemsPage() {
     }
   }
 
+  const logFindMutation = useMutation<number, Error, LogFindVariables, LogFindContext>({
+    mutationFn: async ({ itemId }) => {
+      await new Promise((resolve) => setTimeout(resolve, 350))
+      return itemId
+    },
+    onMutate: (variables) => {
+      const previous = new Set(foundItemIds)
+      setFoundItemIds((prev) => {
+        const next = new Set(prev)
+        if (variables.found) {
+          next.add(variables.itemId)
+        } else {
+          next.delete(variables.itemId)
+        }
+        return next
+      })
+      return { previous }
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) {
+        setFoundItemIds(new Set(context.previous))
+      }
+    },
+  })
+
+  const pendingItemId = logFindMutation.variables?.itemId
+
   const statusText = (() => {
     if (itemsQuery.status === 'pending') {
       return 'Fetching grail items from the server…'
@@ -76,6 +182,44 @@ function ItemsPage() {
     }
     return `Displaying ${filteredItems.length} of ${items.length} loaded items.`
   })()
+
+  const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value)
+  }
+
+  const toggleRunewordFilter = () => {
+    setShowRunewordsOnly((value) => !value)
+  }
+
+  const toggleSelectedItem = (itemId: number) => {
+    setSelectedItemId((current) => (current === itemId ? null : itemId))
+  }
+
+  const clearFilters = () => {
+    setRarityFilter('all')
+    setQualityFilter('all')
+    setVersionFilter('all')
+    setShowRunewordsOnly(false)
+    setSearchTerm('')
+  }
+
+  const filtersArePristine =
+    rarityFilter === 'all' &&
+    qualityFilter === 'all' &&
+    versionFilter === 'all' &&
+    !showRunewordsOnly &&
+    searchTerm.trim() === ''
+
+  const handleQuickLog = () => {
+    const target =
+      (selectedItemId && items.find((item) => item.id === selectedItemId)) || filteredItems[0] || null
+    if (!target) {
+      return
+    }
+
+    const isFound = foundItemIds.has(target.id)
+    logFindMutation.mutate({ itemId: target.id, found: !isFound })
+  }
 
   return (
     <Container className="items-page" maxWidth="xl" padding="lg">
@@ -113,20 +257,80 @@ function ItemsPage() {
             </Stack>
           </CardHeader>
           <CardContent>
-            <Stack direction="horizontal" gap="sm" wrap className="items-page__filters">
-              <FilterChip selected={rarityFilter === 'all'} onClick={() => setRarityFilter('all')}>
-                All rarities
+            <div className="items-page__controls">
+              <label className="items-page__search">
+                <span className="visually-hidden">Search items</span>
+                <input
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  className="items-page__search-input"
+                  placeholder="Search items…"
+                  type="search"
+                />
+              </label>
+              <FilterChip selected={showRunewordsOnly} onClick={toggleRunewordFilter}>
+                Runewords only
               </FilterChip>
-              {rarityOptions.map((rarity) => (
-                <FilterChip
-                  key={rarity}
-                  selected={rarityFilter.toLowerCase() === rarity.toLowerCase()}
-                  onClick={() => setRarityFilter(rarity)}
-                >
-                  {rarity}
-                </FilterChip>
-              ))}
-            </Stack>
+              <Button variant="ghost" onClick={clearFilters} disabled={filtersArePristine}>
+                Reset filters
+              </Button>
+            </div>
+
+            <div className="items-page__filters-grid">
+              <div className="items-page__filter-group">
+                <p className="items-page__filter-heading">Rarity</p>
+                <div className="items-page__chip-group">
+                  <FilterChip selected={rarityFilter === 'all'} onClick={() => setRarityFilter('all')}>
+                    All
+                  </FilterChip>
+                  {rarityOptions.map((rarity) => (
+                    <FilterChip
+                      key={rarity}
+                      selected={rarityFilter.toLowerCase() === rarity.toLowerCase()}
+                      onClick={() => setRarityFilter(rarity)}
+                    >
+                      {rarity}
+                    </FilterChip>
+                  ))}
+                </div>
+              </div>
+
+              <div className="items-page__filter-group">
+                <p className="items-page__filter-heading">Quality</p>
+                <div className="items-page__chip-group">
+                  <FilterChip selected={qualityFilter === 'all'} onClick={() => setQualityFilter('all')}>
+                    All
+                  </FilterChip>
+                  {qualityOptions.map((quality) => (
+                    <FilterChip
+                      key={quality}
+                      selected={qualityFilter.toLowerCase() === quality.toLowerCase()}
+                      onClick={() => setQualityFilter(quality)}
+                    >
+                      {quality}
+                    </FilterChip>
+                  ))}
+                </div>
+              </div>
+
+              <div className="items-page__filter-group">
+                <p className="items-page__filter-heading">Version</p>
+                <div className="items-page__chip-group">
+                  <FilterChip selected={versionFilter === 'all'} onClick={() => setVersionFilter('all')}>
+                    All
+                  </FilterChip>
+                  {versionOptions.map((version) => (
+                    <FilterChip
+                      key={version}
+                      selected={versionFilter.toLowerCase() === version.toLowerCase()}
+                      onClick={() => setVersionFilter(version)}
+                    >
+                      {version}
+                    </FilterChip>
+                  ))}
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -177,42 +381,93 @@ function ItemsPage() {
 
         {filteredItems.length > 0 && (
           <Grid gap="lg" className="items-page__grid" minItemWidth="18rem">
-            {filteredItems.map((item) => (
-              <Card key={item.id} className="items-page__item-card">
-                <CardHeader>
-                  <Stack direction="horizontal" gap="sm" justify="between" align="center">
-                    <CardTitle>{item.name}</CardTitle>
-                    {item.quality && (
-                      <StatusBadge variant="info" subtle>
-                        {item.quality}
+            {filteredItems.map((item) => {
+              const isFound = foundItemIds.has(item.id)
+              const isSelected = selectedItemId === item.id
+              const isMutating = logFindMutation.isPending && pendingItemId === item.id
+
+              return (
+                <Card
+                  key={item.id}
+                  className={classNames(
+                    'items-page__item-card',
+                    isSelected && 'items-page__item-card--selected',
+                    isFound && 'items-page__item-card--found',
+                  )}
+                >
+                  <CardHeader>
+                    <Stack direction="horizontal" gap="sm" justify="between" align="center">
+                      <CardTitle>{item.name}</CardTitle>
+                      <Stack direction="horizontal" gap="xs" align="center">
+                        {item.quality && (
+                          <StatusBadge variant="info" subtle>
+                            {item.quality}
+                          </StatusBadge>
+                        )}
+                        {isFound && (
+                          <StatusBadge variant="success">Found</StatusBadge>
+                        )}
+                      </Stack>
+                    </Stack>
+                    {item.rarity && (
+                      <StatusBadge variant={getRarityVariant(item.rarity)} subtle>
+                        {item.rarity}
                       </StatusBadge>
                     )}
-                  </Stack>
-                  {item.rarity && (
-                    <StatusBadge variant={getRarityVariant(item.rarity)} subtle>
-                      {item.rarity}
-                    </StatusBadge>
+                  </CardHeader>
+                  <CardContent className="items-page__item-content">
+                    <dl className="items-page__item-meta">
+                      {item.type && (
+                        <div>
+                          <dt>Type</dt>
+                          <dd>{item.type}</dd>
+                        </div>
+                      )}
+                      {item.d2Version && (
+                        <div>
+                          <dt>Version</dt>
+                          <dd>{item.d2Version}</dd>
+                        </div>
+                      )}
+                    </dl>
+                    <p className="items-page__item-description">
+                      {item.description || 'No description provided yet.'}
+                    </p>
+                  </CardContent>
+                  <CardFooter>
+                    <Stack direction="horizontal" gap="sm" justify="between" align="center">
+                      <Button
+                        variant={isFound ? 'surface' : 'primary'}
+                        loading={isMutating}
+                        onClick={() => logFindMutation.mutate({ itemId: item.id, found: !isFound })}
+                      >
+                        {isFound ? 'Mark as missing' : 'Log find'}
+                      </Button>
+                      <Button variant="ghost" onClick={() => toggleSelectedItem(item.id)}>
+                        {isSelected ? 'Hide details' : 'View details'}
+                      </Button>
+                    </Stack>
+                  </CardFooter>
+                  {isSelected && (
+                    <div className="items-page__item-details">
+                      <p className="items-page__more-info">
+                        Track your progress and add personal notes once the item detail view is available.
+                      </p>
+                      <Stack direction="horizontal" gap="sm" wrap>
+                        <StatusBadge variant="info" subtle>
+                          ID #{item.id}
+                        </StatusBadge>
+                        {isRuneword(item) && (
+                          <StatusBadge variant="warning" subtle>
+                            Runeword-compatible
+                          </StatusBadge>
+                        )}
+                      </Stack>
+                    </div>
                   )}
-                </CardHeader>
-                <CardContent className="items-page__item-content">
-                  <dl className="items-page__item-meta">
-                    {item.type && (
-                      <div>
-                        <dt>Type</dt>
-                        <dd>{item.type}</dd>
-                      </div>
-                    )}
-                    {item.d2Version && (
-                      <div>
-                        <dt>Version</dt>
-                        <dd>{item.d2Version}</dd>
-                      </div>
-                    )}
-                  </dl>
-                  {item.description && <p className="items-page__item-description">{item.description}</p>}
-                </CardContent>
-              </Card>
-            ))}
+                </Card>
+              )
+            })}
           </Grid>
         )}
       </Stack>
@@ -227,10 +482,11 @@ function ItemsPage() {
             />
           </svg>
         }
-        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-        aria-label="Log a new find"
+        onClick={handleQuickLog}
+        aria-label="Log find for selected item"
+        disabled={logFindMutation.isPending || filteredItems.length === 0}
       >
-        Log find
+        {logFindMutation.isPending ? 'Logging…' : 'Quick log'}
       </FloatingActionButton>
     </Container>
   )

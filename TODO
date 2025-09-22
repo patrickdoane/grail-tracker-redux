@@ -29,10 +29,10 @@
 ✔ Establish mobile-first design system @done(25-09-24 10:45)
   ✔ Lock in palette tokens (charcoal, ember, teal, bronze, parchment) and typography scale @done(25-09-24 10:45)
   ✔ Extend global styles with spacing scale and dark-first theme variables @done(25-09-24 10:45)
-☐ Build shared UI component library @started(25-09-22 01:54)
-  - Implement Button, Card, Container/Stack/Grid, and FilterChip primitives
-  - Add ProgressRing, StatusBadge, and FloatingActionButton with accessible states
-  - Document usage patterns for future Storybook/design tokens export
+✔ Build shared UI component library @started(25-09-22 01:54) @done(25-09-25 08:45) @lasted(3d6h51m)
+  ✔ Implement Button, Card, Container/Stack/Grid, and FilterChip primitives @done(25-09-24 22:10)
+  ✔ Add ProgressRing, StatusBadge, and FloatingActionButton with accessible states @done(25-09-24 22:10)
+  ✔ Document usage patterns for future Storybook/design tokens export @done(25-09-24 22:20)
 ✔ Scaffold grail dashboard shell @done(25-09-21 17:41)
   ✔ Introduce React Router layout with top app bar, responsive rail, and route slots @done(25-09-21 17:41)
   ✔ Move the prototype items view into the dashboard content region @done(25-09-21 17:41)

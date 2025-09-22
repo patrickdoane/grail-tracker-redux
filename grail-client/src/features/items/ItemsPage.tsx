@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Button,
   Card,
@@ -15,59 +15,20 @@ import {
   type StatusBadgeVariant,
   FloatingActionButton,
 } from '../../components/ui'
+import { getApiErrorMessage } from '../../lib/apiClient'
+import { useItemsQuery } from './useItemsQuery'
+import type { Item } from './itemsApi'
 import './ItemsPage.css'
-
-type Item = {
-  id: number
-  name: string
-  type: string | null
-  quality: string | null
-  rarity: string | null
-  description: string | null
-  d2Version: string | null
-}
-
-type LoadState = 'idle' | 'loading' | 'error'
 
 const CATALOGUE_ESTIMATE = 500
 
+type RarityFilter = 'all' | string
+
 function ItemsPage() {
-  const [items, setItems] = useState<Item[]>([])
-  const [loadState, setLoadState] = useState<LoadState>('idle')
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [rarityFilter, setRarityFilter] = useState<string>('all')
-  const [reloadToken, setReloadToken] = useState(0)
+  const [rarityFilter, setRarityFilter] = useState<RarityFilter>('all')
+  const itemsQuery = useItemsQuery()
 
-  useEffect(() => {
-    const controller = new AbortController()
-
-    const fetchItems = async () => {
-      setLoadState('loading')
-      setErrorMessage(null)
-      try {
-        const response = await fetch('/api/items', { signal: controller.signal })
-        if (!response.ok) {
-          throw new Error(`Request failed with status ${response.status}`)
-        }
-        const data: Item[] = await response.json()
-        setItems(data)
-        setLoadState('idle')
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return
-        }
-        const message = error instanceof Error ? error.message : 'Unexpected error'
-        setErrorMessage(message)
-        setLoadState('error')
-      }
-    }
-
-    fetchItems()
-
-    return () => {
-      controller.abort()
-    }
-  }, [reloadToken])
+  const items: Item[] = itemsQuery.data ?? []
 
   const rarityOptions = useMemo(() => {
     const values = new Set<string>()
@@ -79,7 +40,7 @@ function ItemsPage() {
     return Array.from(values).sort((a, b) => a.localeCompare(b))
   }, [items])
 
-  const filteredItems = useMemo(() => {
+  const filteredItems: Item[] = useMemo(() => {
     if (rarityFilter === 'all') {
       return items
     }
@@ -89,7 +50,7 @@ function ItemsPage() {
   const catalogueMax = Math.max(items.length, CATALOGUE_ESTIMATE)
   const completionValue = items.length
 
-  const getRarityVariant = (rarity: string | null): StatusBadgeVariant => {
+  const getRarityVariant = (rarity: Item['rarity']): StatusBadgeVariant => {
     const value = rarity?.toLowerCase()
     switch (value) {
       case 'set':
@@ -105,6 +66,16 @@ function ItemsPage() {
         return 'neutral'
     }
   }
+
+  const statusText = (() => {
+    if (itemsQuery.status === 'pending') {
+      return 'Fetching grail items from the server…'
+    }
+    if (itemsQuery.isFetching && itemsQuery.status === 'success') {
+      return `Refreshing ${items.length} loaded items…`
+    }
+    return `Displaying ${filteredItems.length} of ${items.length} loaded items.`
+  })()
 
   return (
     <Container className="items-page" maxWidth="xl" padding="lg">
@@ -127,11 +98,7 @@ function ItemsPage() {
             <Stack direction="horizontal" gap="lg" align="center" justify="between" wrap>
               <Stack gap="xs">
                 <CardTitle>Collection snapshot</CardTitle>
-                <CardDescription>
-                  {loadState === 'loading'
-                    ? 'Fetching grail items from the server…'
-                    : `Displaying ${filteredItems.length} of ${items.length} loaded items.`}
-                </CardDescription>
+                <CardDescription>{statusText}</CardDescription>
               </Stack>
               {items.length > 0 && (
                 <ProgressRing
@@ -163,7 +130,7 @@ function ItemsPage() {
           </CardContent>
         </Card>
 
-        {loadState === 'loading' && (
+        {itemsQuery.status === 'pending' && (
           <Card className="items-page__status-card">
             <CardContent>
               <Stack gap="xs">
@@ -174,18 +141,20 @@ function ItemsPage() {
           </Card>
         )}
 
-        {loadState === 'error' && (
+        {itemsQuery.status === 'error' && (
           <Card className="items-page__status-card">
             <CardContent>
               <Stack gap="sm">
                 <Stack direction="horizontal" gap="sm" align="center">
                   <StatusBadge variant="danger">Error</StatusBadge>
-                  {errorMessage && <span className="items-page__error-message">{errorMessage}</span>}
+                  <span className="items-page__error-message">
+                    {getApiErrorMessage(itemsQuery.error)}
+                  </span>
                 </Stack>
                 <CardDescription>
                   Ensure the backend is running on <code>localhost:8080</code> or adjust the Vite proxy.
                 </CardDescription>
-                <Button variant="secondary" onClick={() => setReloadToken((token) => token + 1)}>
+                <Button variant="secondary" onClick={() => itemsQuery.refetch()}>
                   Try again
                 </Button>
               </Stack>
@@ -193,7 +162,7 @@ function ItemsPage() {
           </Card>
         )}
 
-        {loadState !== 'loading' && loadState !== 'error' && items.length === 0 && (
+        {itemsQuery.status === 'success' && filteredItems.length === 0 && (
           <Card className="items-page__status-card">
             <CardContent>
               <Stack gap="xs">

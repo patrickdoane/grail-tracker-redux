@@ -1,4 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Container,
+  FilterChip,
+  Grid,
+  ProgressRing,
+  Stack,
+  StatusBadge,
+  type StatusBadgeVariant,
+  FloatingActionButton,
+} from '../../components/ui'
+import './ItemsPage.css'
 
 type Item = {
   id: number
@@ -12,10 +29,14 @@ type Item = {
 
 type LoadState = 'idle' | 'loading' | 'error'
 
+const CATALOGUE_ESTIMATE = 500
+
 function ItemsPage() {
   const [items, setItems] = useState<Item[]>([])
   const [loadState, setLoadState] = useState<LoadState>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [rarityFilter, setRarityFilter] = useState<string>('all')
+  const [reloadToken, setReloadToken] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -46,72 +67,203 @@ function ItemsPage() {
     return () => {
       controller.abort()
     }
-  }, [])
+  }, [reloadToken])
+
+  const rarityOptions = useMemo(() => {
+    const values = new Set<string>()
+    items.forEach((item) => {
+      if (item.rarity) {
+        values.add(item.rarity)
+      }
+    })
+    return Array.from(values).sort((a, b) => a.localeCompare(b))
+  }, [items])
+
+  const filteredItems = useMemo(() => {
+    if (rarityFilter === 'all') {
+      return items
+    }
+    return items.filter((item) => item.rarity?.toLowerCase() === rarityFilter.toLowerCase())
+  }, [items, rarityFilter])
+
+  const catalogueMax = Math.max(items.length, CATALOGUE_ESTIMATE)
+  const completionValue = items.length
+
+  const getRarityVariant = (rarity: string | null): StatusBadgeVariant => {
+    const value = rarity?.toLowerCase()
+    switch (value) {
+      case 'set':
+        return 'success'
+      case 'unique':
+        return 'warning'
+      case 'runeword':
+        return 'info'
+      case 'quest':
+      case 'uber':
+        return 'danger'
+      default:
+        return 'neutral'
+    }
+  }
 
   return (
-    <div className="page items-page">
-      <header className="page__header">
-        <div>
-          <p className="page__eyebrow">Prototype</p>
-          <h1>Holy Grail Items</h1>
-        </div>
-        <p className="page__lead">
-          This quick list verifies that the frontend can reach the Spring Boot API. Once it is stable,
-          we can iterate on the full dashboard experience.
-        </p>
-      </header>
-
-      <section aria-live="polite" className="items-page__section">
-        {loadState === 'loading' && <p className="status status--loading">Loading items…</p>}
-        {loadState === 'error' && (
-          <div className="status status--error">
-            <p>Could not load the items from the API.</p>
-            {errorMessage && <p className="status__detail">{errorMessage}</p>}
-            <p className="status__hint">
-              Ensure the backend is running on <code>localhost:8080</code> or adjust the Vite proxy.
+    <Container className="items-page" maxWidth="xl" padding="lg">
+      <Stack gap="lg">
+        <Stack gap="xs">
+          <StatusBadge variant="info" className="items-page__status-pill">
+            Prototype
+          </StatusBadge>
+          <Stack gap="sm">
+            <h1 className="items-page__title">Holy Grail Items</h1>
+            <p className="items-page__lead">
+              This view verifies that the React client is wired to the Spring Boot API. With the data
+              flowing end-to-end we can now evolve the full dashboard experience.
             </p>
-          </div>
+          </Stack>
+        </Stack>
+
+        <Card>
+          <CardHeader className="items-page__summary">
+            <Stack direction="horizontal" gap="lg" align="center" justify="between" wrap>
+              <Stack gap="xs">
+                <CardTitle>Collection snapshot</CardTitle>
+                <CardDescription>
+                  {loadState === 'loading'
+                    ? 'Fetching grail items from the server…'
+                    : `Displaying ${filteredItems.length} of ${items.length} loaded items.`}
+                </CardDescription>
+              </Stack>
+              {items.length > 0 && (
+                <ProgressRing
+                  value={completionValue}
+                  min={0}
+                  max={catalogueMax}
+                  label="Items loaded"
+                  valueFormatter={(percentage) => `${percentage}%`}
+                  className="items-page__progress"
+                />
+              )}
+            </Stack>
+          </CardHeader>
+          <CardContent>
+            <Stack direction="horizontal" gap="sm" wrap className="items-page__filters">
+              <FilterChip selected={rarityFilter === 'all'} onClick={() => setRarityFilter('all')}>
+                All rarities
+              </FilterChip>
+              {rarityOptions.map((rarity) => (
+                <FilterChip
+                  key={rarity}
+                  selected={rarityFilter.toLowerCase() === rarity.toLowerCase()}
+                  onClick={() => setRarityFilter(rarity)}
+                >
+                  {rarity}
+                </FilterChip>
+              ))}
+            </Stack>
+          </CardContent>
+        </Card>
+
+        {loadState === 'loading' && (
+          <Card className="items-page__status-card">
+            <CardContent>
+              <Stack gap="xs">
+                <StatusBadge variant="info">Loading</StatusBadge>
+                <CardDescription>Fetching item data from the API…</CardDescription>
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
+
+        {loadState === 'error' && (
+          <Card className="items-page__status-card">
+            <CardContent>
+              <Stack gap="sm">
+                <Stack direction="horizontal" gap="sm" align="center">
+                  <StatusBadge variant="danger">Error</StatusBadge>
+                  {errorMessage && <span className="items-page__error-message">{errorMessage}</span>}
+                </Stack>
+                <CardDescription>
+                  Ensure the backend is running on <code>localhost:8080</code> or adjust the Vite proxy.
+                </CardDescription>
+                <Button variant="secondary" onClick={() => setReloadToken((token) => token + 1)}>
+                  Try again
+                </Button>
+              </Stack>
+            </CardContent>
+          </Card>
         )}
 
         {loadState !== 'loading' && loadState !== 'error' && items.length === 0 && (
-          <p className="status">No items found yet. Try seeding the database.</p>
+          <Card className="items-page__status-card">
+            <CardContent>
+              <Stack gap="xs">
+                <StatusBadge variant="warning">No data</StatusBadge>
+                <CardDescription>
+                  The grail collection is empty. Seed the database or import a saved catalogue to begin.
+                </CardDescription>
+              </Stack>
+            </CardContent>
+          </Card>
         )}
 
-        {items.length > 0 && (
-          <ul className="item-list">
-            {items.map((item) => (
-              <li key={item.id} className="item-card">
-                <div className="item-card__header">
-                  <h2>{item.name}</h2>
-                  {item.quality && <span className="item-card__quality">{item.quality}</span>}
-                </div>
-                <dl className="item-card__meta">
-                  {item.type && (
-                    <div>
-                      <dt>Type</dt>
-                      <dd>{item.type}</dd>
-                    </div>
-                  )}
+        {filteredItems.length > 0 && (
+          <Grid gap="lg" className="items-page__grid" minItemWidth="18rem">
+            {filteredItems.map((item) => (
+              <Card key={item.id} className="items-page__item-card">
+                <CardHeader>
+                  <Stack direction="horizontal" gap="sm" justify="between" align="center">
+                    <CardTitle>{item.name}</CardTitle>
+                    {item.quality && (
+                      <StatusBadge variant="info" subtle>
+                        {item.quality}
+                      </StatusBadge>
+                    )}
+                  </Stack>
                   {item.rarity && (
-                    <div>
-                      <dt>Rarity</dt>
-                      <dd>{item.rarity}</dd>
-                    </div>
+                    <StatusBadge variant={getRarityVariant(item.rarity)} subtle>
+                      {item.rarity}
+                    </StatusBadge>
                   )}
-                  {item.d2Version && (
-                    <div>
-                      <dt>Version</dt>
-                      <dd>{item.d2Version}</dd>
-                    </div>
-                  )}
-                </dl>
-                {item.description && <p className="item-card__description">{item.description}</p>}
-              </li>
+                </CardHeader>
+                <CardContent className="items-page__item-content">
+                  <dl className="items-page__item-meta">
+                    {item.type && (
+                      <div>
+                        <dt>Type</dt>
+                        <dd>{item.type}</dd>
+                      </div>
+                    )}
+                    {item.d2Version && (
+                      <div>
+                        <dt>Version</dt>
+                        <dd>{item.d2Version}</dd>
+                      </div>
+                    )}
+                  </dl>
+                  {item.description && <p className="items-page__item-description">{item.description}</p>}
+                </CardContent>
+              </Card>
             ))}
-          </ul>
+          </Grid>
         )}
-      </section>
-    </div>
+      </Stack>
+
+      <FloatingActionButton
+        className="items-page__fab"
+        icon={
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 0 1 0-2h5V6a1 1 0 0 1 1-1z"
+              fill="currentColor"
+            />
+          </svg>
+        }
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        aria-label="Log a new find"
+      >
+        Log find
+      </FloatingActionButton>
+    </Container>
   )
 }
 

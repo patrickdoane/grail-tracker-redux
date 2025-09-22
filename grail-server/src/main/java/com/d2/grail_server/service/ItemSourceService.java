@@ -45,7 +45,7 @@ public class ItemSourceService {
         itemSourceRepository
             .findById(id)
             .orElseThrow(
-                () -> new ResourceNotFoundException("Item source %d not found".formatted(id)));
+                () -> new ResourceNotFoundException(String.format("Item source %d not found", id)));
     return toResponse(source);
   }
 
@@ -56,7 +56,7 @@ public class ItemSourceService {
             .orElseThrow(
                 () ->
                     new ResourceNotFoundException(
-                        "Item %d not found".formatted(request.getItemId())));
+                        String.format("Item %d not found", request.getItemId())));
     ItemSource source = new ItemSource();
     source.setItem(item);
     source.setSourceType(request.getSourceType());
@@ -70,14 +70,14 @@ public class ItemSourceService {
         itemSourceRepository
             .findById(id)
             .orElseThrow(
-                () -> new ResourceNotFoundException("Item source %d not found".formatted(id)));
+                () -> new ResourceNotFoundException(String.format("Item source %d not found", id)));
     Item item =
         itemRepository
             .findById(request.getItemId())
             .orElseThrow(
                 () ->
                     new ResourceNotFoundException(
-                        "Item %d not found".formatted(request.getItemId())));
+                        String.format("Item %d not found", request.getItemId())));
     source.setItem(item);
     source.setSourceType(request.getSourceType());
     source.setSourceName(request.getSourceName());
@@ -87,7 +87,7 @@ public class ItemSourceService {
 
   public void deleteSource(Long id) {
     if (!itemSourceRepository.existsById(id)) {
-      throw new ResourceNotFoundException("Item source %d not found".formatted(id));
+      throw new ResourceNotFoundException(String.format("Item source %d not found", id));
     }
     itemSourceRepository.deleteById(id);
   }

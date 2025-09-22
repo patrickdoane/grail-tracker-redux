@@ -29,7 +29,7 @@
 ✔ Establish mobile-first design system @done(25-09-24 10:45)
   ✔ Lock in palette tokens (charcoal, ember, teal, bronze, parchment) and typography scale @done(25-09-24 10:45)
   ✔ Extend global styles with spacing scale and dark-first theme variables @done(25-09-24 10:45)
-☐ Build shared UI component library
+☐ Build shared UI component library @started(25-09-22 01:54)
   - Implement Button, Card, Container/Stack/Grid, and FilterChip primitives
   - Add ProgressRing, StatusBadge, and FloatingActionButton with accessible states
   - Document usage patterns for future Storybook/design tokens export

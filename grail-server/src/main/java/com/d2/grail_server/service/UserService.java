@@ -53,7 +53,7 @@ public class UserService {
 
   public void deleteUser(Long id) {
     if (!userRepository.existsById(id)) {
-      throw new ResourceNotFoundException("User %d not found".formatted(id));
+      throw new ResourceNotFoundException(String.format("User %d not found", id));
     }
     userRepository.deleteById(id);
   }
@@ -61,20 +61,20 @@ public class UserService {
   private User findUser(Long id) {
     return userRepository
         .findById(id)
-        .orElseThrow(() -> new ResourceNotFoundException("User %d not found".formatted(id)));
+        .orElseThrow(() -> new ResourceNotFoundException(String.format("User %d not found", id)));
   }
 
   private void ensureUsernameAvailable(String username, Long excludingId) {
     Optional<User> existing = userRepository.findByUsername(username);
     if (existing.isPresent() && !existing.get().getId().equals(excludingId)) {
-      throw new ConflictException("Username '%s' already in use".formatted(username));
+      throw new ConflictException(String.format("Username '%s' already in use", username));
     }
   }
 
   private void ensureEmailAvailable(String email, Long excludingId) {
     Optional<User> existing = userRepository.findByEmail(email);
     if (existing.isPresent() && !existing.get().getId().equals(excludingId)) {
-      throw new ConflictException("Email '%s' already in use".formatted(email));
+      throw new ConflictException(String.format("Email '%s' already in use", email));
     }
   }
 

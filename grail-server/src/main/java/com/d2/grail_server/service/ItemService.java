@@ -30,7 +30,7 @@ public class ItemService {
     Item item =
         itemRepository
             .findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Item %d not found".formatted(id)));
+            .orElseThrow(() -> new ResourceNotFoundException(String.format("Item %d not found", id)));
     return toResponse(item);
   }
 
@@ -45,7 +45,7 @@ public class ItemService {
     Item item =
         itemRepository
             .findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Item %d not found".formatted(id)));
+            .orElseThrow(() -> new ResourceNotFoundException(String.format("Item %d not found", id)));
     applyRequest(item, request);
     Item saved = itemRepository.save(item);
     return toResponse(saved);
@@ -53,7 +53,7 @@ public class ItemService {
 
   public void deleteItem(Long id) {
     if (!itemRepository.existsById(id)) {
-      throw new ResourceNotFoundException("Item %d not found".formatted(id));
+      throw new ResourceNotFoundException(String.format("Item %d not found", id));
     }
     itemRepository.deleteById(id);
   }

@@ -45,7 +45,7 @@ public class ItemPropertyService {
         itemPropertyRepository
             .findById(id)
             .orElseThrow(
-                () -> new ResourceNotFoundException("Item property %d not found".formatted(id)));
+                () -> new ResourceNotFoundException(String.format("Item property %d not found", id)));
     return toResponse(property);
   }
 
@@ -56,7 +56,7 @@ public class ItemPropertyService {
             .orElseThrow(
                 () ->
                     new ResourceNotFoundException(
-                        "Item %d not found".formatted(request.getItemId())));
+                        String.format("Item %d not found", request.getItemId())));
     ItemProperty property = new ItemProperty();
     property.setItem(item);
     property.setPropertyName(request.getPropertyName());
@@ -70,14 +70,14 @@ public class ItemPropertyService {
         itemPropertyRepository
             .findById(id)
             .orElseThrow(
-                () -> new ResourceNotFoundException("Item property %d not found".formatted(id)));
+                () -> new ResourceNotFoundException(String.format("Item property %d not found", id)));
     Item item =
         itemRepository
             .findById(request.getItemId())
             .orElseThrow(
                 () ->
                     new ResourceNotFoundException(
-                        "Item %d not found".formatted(request.getItemId())));
+                        String.format("Item %d not found", request.getItemId())));
     property.setItem(item);
     property.setPropertyName(request.getPropertyName());
     property.setPropertyValue(request.getPropertyValue());
@@ -87,7 +87,7 @@ public class ItemPropertyService {
 
   public void deleteProperty(Long id) {
     if (!itemPropertyRepository.existsById(id)) {
-      throw new ResourceNotFoundException("Item property %d not found".formatted(id));
+      throw new ResourceNotFoundException(String.format("Item property %d not found", id));
     }
     itemPropertyRepository.deleteById(id);
   }

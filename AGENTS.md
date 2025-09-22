@@ -23,7 +23,13 @@
 ## Coding Style & Naming
 - TypeScript/React: 2-space indent, `camelCase` for vars, `PascalCase` for components, files `*.tsx` for components. Keep UI state local; colocate styles in `src/`.
 - ESLint: configured via `eslint.config.js` in `grail-client/`. Fix issues before PR.
-- Java: 4-space indent, `camelCase` methods/fields, `PascalCase` classes. Package `com.d2.grail_server`. Use Lombok where present; place JPA entities under `model/`.
+- Java: 4-space indent, `camelCase` methods/fields, `PascalCase` classes. Package `com.d2.grail_server`. Use Lombok where present; place JPA entities under `model/`. Use `String.format` for templated strings to remain compatible with Java 17.
+
+## Frontend Component Library
+- Shared UI primitives live in `grail-client/src/components/ui`; import from the directory root (e.g. `import { Button } from '../components/ui'`) to automatically pull in styling.
+- Prefer the provided `Button`, `Card`, `Container`, `Stack`, `Grid`, `FilterChip`, `StatusBadge`, `ProgressRing`, and `FloatingActionButton` helpers before introducing bespoke markup.
+- Pair component usage with local `.css` modules (see `features/items/ItemsPage.tsx`) to keep feature-specific styling isolated.
+- Document any new components or variants in `docs/ui-component-library.md` to keep the design system discoverable.
 
 ## Testing Guidelines
 - Backend: JUnit 5 with Spring Boot. Test classes end with `*Tests.java` under `src/test/java/`. Aim for meaningful integration tests for controllers/repos.

@@ -50,6 +50,16 @@ A ground-up rebuild of the Diablo II Holy Grail tracker featuring a React (Vite)
   ./mvnw test
   ```
 
+### Shared UI Component Library
+
+The React client ships with a design system under `grail-client/src/components/ui`. Import components from the directory root to automatically include styles:
+
+```tsx
+import { Button, Card, Container, Stack } from '../components/ui'
+```
+
+Available pieces include Buttons, Cards, layout helpers (`Container`, `Stack`, `Grid`), FilterChips, StatusBadges, the ProgressRing, and a FloatingActionButton. See `docs/ui-component-library.md` for practical guidance and best practices.
+
 ## API Endpoints
 
 All routes live under the `/api` prefix. Sample payloads are JSON.

@@ -36,6 +36,7 @@
 - Frontend: No test runner configured yet; prefer adding Vitest + React Testing Library in future PRs.
 
 ## Commit & Pull Requests
+- Create a feature branch before you start (e.g., `git checkout -b feature/item-variants-fix`) so `main` stays clean until review; avoid committing directly to `main`.
 - Commits: imperative present (e.g., "Add Item model"). Keep messages concise and scoped.
 - PRs: include purpose, linked issue (if any), local run steps, and screenshots/GIFs for UI changes. Note any DB/schema impacts.
 

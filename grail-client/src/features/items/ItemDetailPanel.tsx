@@ -1,4 +1,12 @@
-import { useMemo, useState, type CSSProperties, type ChangeEvent, type FormEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ChangeEvent,
+  type FormEvent,
+} from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Button,
@@ -25,6 +33,19 @@ import {
 import './ItemDetailPanel.css'
 
 type SectionId = 'overview' | 'sources' | 'variants' | 'notes'
+
+type VariantEntry = ItemVariant & {
+  key: string
+  displayLabel: string
+}
+
+type VariantUiState = {
+  entries: VariantEntry[]
+  activeKey: string | null
+  expandedKeys: Set<string>
+  onSelect: (key: string) => void
+  onToggle: (key: string, open: boolean) => void
+}
 
 type NoteFormRenderProps = {
   authorName: string
@@ -65,6 +86,96 @@ function ItemDetailPanel({
   const sources = useMemo<ItemSource[]>(() => detail?.sources ?? [], [detail?.sources])
   const variants = useMemo<ItemVariant[]>(() => detail?.variants ?? [], [detail?.variants])
   const notes = useMemo<ItemNote[]>(() => detail?.notes ?? [], [detail?.notes])
+
+  const variantsWithDevFallback = useMemo<ItemVariant[]>(() => {
+    if (variants.length === 0 && import.meta.env.DEV) {
+      return [
+        {
+          label: 'Demo Variant',
+          description: 'Preview description surfaced in development mode to demo the variant layout.',
+          attributes: ['Example attribute', 'Another modifier'],
+        },
+      ]
+    }
+    return variants
+  }, [variants])
+
+  const variantEntries = useMemo<VariantEntry[]>(() => {
+    return variantsWithDevFallback.map((variant, index) => {
+      const displayLabel = variant.label?.trim() || `Variant ${index + 1}`
+      const normalizedKey = createVariantKey(displayLabel, index)
+      const attributes = (variant.attributes ?? [])
+        .map((value) => value?.trim())
+        .filter((value): value is string => Boolean(value))
+      return {
+        ...variant,
+        displayLabel,
+        key: normalizedKey,
+        attributes,
+      }
+    })
+  }, [variantsWithDevFallback])
+
+  const [activeVariantKey, setActiveVariantKey] = useState<string | null>(null)
+  const [expandedVariantKeys, setExpandedVariantKeys] = useState<Set<string>>(() => new Set())
+
+  useEffect(() => {
+    if (variantEntries.length === 0) {
+      setActiveVariantKey(null)
+      setExpandedVariantKeys(new Set())
+      return
+    }
+
+    const firstKey = variantEntries[0].key
+
+    setActiveVariantKey((current) => {
+      const stillExists = current ? variantEntries.some((entry) => entry.key === current) : false
+      return stillExists ? current : firstKey
+    })
+
+    setExpandedVariantKeys((current) => {
+      const next = new Set<string>()
+      variantEntries.forEach((entry) => {
+        if (current.has(entry.key)) {
+          next.add(entry.key)
+        }
+      })
+      next.add(firstKey)
+      return next
+    })
+  }, [variantEntries])
+
+  const handleVariantSelect = useCallback((key: string) => {
+    setActiveVariantKey(key)
+    setExpandedVariantKeys((current) => {
+      const next = new Set(current)
+      next.add(key)
+      return next
+    })
+  }, [])
+
+  const handleVariantAccordionToggle = useCallback((key: string, open: boolean) => {
+    setExpandedVariantKeys((current) => {
+      const next = new Set(current)
+      if (open) {
+        next.add(key)
+      } else {
+        next.delete(key)
+      }
+      return next
+    })
+  }, [])
+
+  const variantUiState = useMemo<VariantUiState>(
+    () => ({
+      entries: variantEntries,
+      activeKey: activeVariantKey,
+      expandedKeys: expandedVariantKeys,
+      onSelect: handleVariantSelect,
+      onToggle: handleVariantAccordionToggle,
+    }),
+    [variantEntries, activeVariantKey, expandedVariantKeys, handleVariantSelect, handleVariantAccordionToggle],
+  )
 
   const queryClient = useQueryClient()
   const [noteAuthor, setNoteAuthor] = useState('Anonymous')
@@ -251,12 +362,13 @@ function ItemDetailPanel({
                 item: detailItem,
                 properties,
                 sources,
-                variants,
+                variants: variantsWithDevFallback,
                 notes,
                 status: detailQuery.status,
                 error: detailQuery.error,
                 isFetching: detailQuery.isFetching,
                 noteFormProps,
+                variantUiState: section.id === 'variants' ? variantUiState : undefined,
               })}
             </div>
           ))}
@@ -276,18 +388,19 @@ function ItemDetailPanel({
                   {renderSectionContent({
                     sectionId: section.id,
                     item: detailItem,
-                  properties,
-                  sources,
-                  variants,
-                  notes,
-                  status: detailQuery.status,
-                  error: detailQuery.error,
-                  isFetching: detailQuery.isFetching,
-                  noteFormProps,
-                })}
-              </div>
-            </details>
-          )
+                    properties,
+                    sources,
+                    variants: variantsWithDevFallback,
+                    notes,
+                    status: detailQuery.status,
+                    error: detailQuery.error,
+                    isFetching: detailQuery.isFetching,
+                    noteFormProps,
+                    variantUiState: section.id === 'variants' ? variantUiState : undefined,
+                  })}
+                </div>
+              </details>
+            )
           })}
         </div>
       </CardContent>
@@ -313,6 +426,7 @@ function renderSectionContent({
   error,
   isFetching,
   noteFormProps,
+  variantUiState,
 }: {
   sectionId: SectionId
   item: Item
@@ -324,6 +438,7 @@ function renderSectionContent({
   error: unknown
   isFetching: boolean
   noteFormProps?: NoteFormRenderProps
+  variantUiState?: VariantUiState
 }) {
   const isLoading = status === 'pending'
   const isError = status === 'error'
@@ -400,7 +515,7 @@ function renderSectionContent({
           </ul>
         </div>
       )
-    case 'variants':
+    case 'variants': {
       if (isLoading && variants.length === 0) {
         return <p className="item-detail__state">Loading variants…</p>
       }
@@ -410,25 +525,110 @@ function renderSectionContent({
       if (variants.length === 0) {
         return <p className="item-detail__state">Variants will appear here once cataloged.</p>
       }
+
+      if (!variantUiState) {
+        return (
+          <ul className="item-detail__list item-detail__variant-fallback">
+            {variants.map((variant, index) => {
+              const displayLabel = variant.label?.trim() || `Variant ${index + 1}`
+              const attributes = (variant.attributes ?? [])
+                .map((value) => value?.trim())
+                .filter((value): value is string => Boolean(value))
+              return (
+                <li key={`${displayLabel}-${index}`}>
+                  <span className="item-detail__list-label">{displayLabel}</span>
+                  {variant.description && (
+                    <span className="item-detail__list-value">{variant.description}</span>
+                  )}
+                  {attributes.length > 0 && (
+                    <ul className="item-detail__variant-attributes">
+                      {attributes.map((attribute, attributeIndex) => (
+                        <li key={attributeIndex}>{attribute}</li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )
+      }
+
+      if (variantUiState.entries.length === 0) {
+        return <p className="item-detail__state">Variants will appear here once cataloged.</p>
+      }
+
+      const activeKey =
+        variantUiState.activeKey &&
+        variantUiState.entries.some((entry) => entry.key === variantUiState.activeKey)
+          ? variantUiState.activeKey
+          : variantUiState.entries[0].key
+
       return (
-        <ul className="item-detail__list item-detail__variant-list">
-          {variants.map((variant, index) => (
-            <li key={`${variant.label}-${index}`}>
-              <span className="item-detail__list-label">{variant.label}</span>
-              {variant.description && (
-                <span className="item-detail__list-value">{variant.description}</span>
-              )}
-              {variant.attributes.length > 0 && (
-                <ul className="item-detail__variant-attributes">
-                  {variant.attributes.map((attribute, attributeIndex) => (
-                    <li key={attributeIndex}>{attribute}</li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          ))}
-        </ul>
+        <div className="item-detail__variants">
+          <div className="item-detail__variant-tabs" role="tablist" aria-label="Item variants">
+            {variantUiState.entries.map((variant) => {
+              const isActive = variant.key === activeKey
+              const tabId = `${variant.key}-tab`
+              const panelId = `${variant.key}-panel`
+              return (
+                <button
+                  key={variant.key}
+                  type="button"
+                  id={tabId}
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-controls={panelId}
+                  className={classNames(
+                    'item-detail__variant-tab',
+                    isActive && 'item-detail__variant-tab--active',
+                  )}
+                  onClick={() => variantUiState.onSelect(variant.key)}
+                >
+                  {variant.displayLabel}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="item-detail__variant-panels">
+            {variantUiState.entries.map((variant) => {
+              const isActive = variant.key === activeKey
+              const panelId = `${variant.key}-panel`
+              const tabId = `${variant.key}-tab`
+              return (
+                <div
+                  key={variant.key}
+                  id={panelId}
+                  role="tabpanel"
+                  aria-labelledby={tabId}
+                  hidden={!isActive}
+                  className="item-detail__variant-panel"
+                >
+                  {renderVariantDetail(variant)}
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="item-detail__variant-accordion">
+            {variantUiState.entries.map((variant) => {
+              const isOpen = variantUiState.expandedKeys.has(variant.key)
+              return (
+                <details
+                  key={variant.key}
+                  open={isOpen}
+                  onToggle={(event) => variantUiState.onToggle(variant.key, event.currentTarget.open)}
+                >
+                  <summary>{variant.displayLabel}</summary>
+                  <div className="item-detail__variant-panel">{renderVariantDetail(variant)}</div>
+                </details>
+              )
+            })}
+          </div>
+        </div>
       )
+    }
     case 'notes':
       if (!noteFormProps) {
         return null
@@ -504,6 +704,30 @@ function renderSectionContent({
   }
 }
 
+function renderVariantDetail(variant: VariantEntry) {
+  const description = variant.description?.trim()
+  const attributes = variant.attributes ?? []
+
+  return (
+    <div className="item-detail__variant-body">
+      {description ? (
+        <p className="item-detail__variant-description">{description}</p>
+      ) : (
+        <p className="item-detail__variant-description item-detail__variant-description--muted">
+          No description recorded for this variant yet.
+        </p>
+      )}
+      {attributes.length > 0 && (
+        <ul className="item-detail__variant-attributes">
+          {attributes.map((attribute, index) => (
+            <li key={index}>{attribute}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function getRarityVariant(rarity: string): StatusBadgeVariant {
   switch (rarity.toLowerCase()) {
     case 'set':
@@ -567,6 +791,14 @@ function trackAnalyticsEvent(name: string, payload: Record<string, unknown>) {
   const timestamp = new Date().toISOString()
   // Centralize analytics logging for now; plug in real tracking later.
   console.info(`[analytics] ${name}`, { timestamp, ...payload })
+}
+
+function createVariantKey(label: string, index: number): string {
+  const slug = label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return `variant-${slug || 'entry'}-${index}`
 }
 
 function ExternalLinkIcon() {

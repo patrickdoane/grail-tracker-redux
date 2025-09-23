@@ -8,11 +8,14 @@ import static org.mockito.Mockito.when;
 import com.d2.grail_server.dto.ItemDetailResponse;
 import com.d2.grail_server.dto.ItemVariantResponse;
 import com.d2.grail_server.model.Item;
+import com.d2.grail_server.model.ItemProperty;
 import com.d2.grail_server.repository.ItemNoteRepository;
 import com.d2.grail_server.repository.ItemPropertyRepository;
 import com.d2.grail_server.repository.ItemRepository;
 import com.d2.grail_server.repository.ItemSourceRepository;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,5 +53,38 @@ class ItemServiceTests {
     assertEquals("Shiny Saber", variant.getLabel());
     assertEquals("Legendary blade that hums softly.", variant.getDescription());
     assertTrue(variant.getAttributes().isEmpty());
+  }
+
+  @Test
+  void getItemDetailUsesVariantPropertiesWhenPresent() {
+    Item item = new Item();
+    item.setId(2L);
+    item.setName("Runic Shroud");
+    item.setDescription("Base description should not become the variant.");
+
+    ItemProperty variantDescription = new ItemProperty();
+    variantDescription.setItem(item);
+    variantDescription.setPropertyName("Variant: Ladder");
+    variantDescription.setPropertyValue("Socketed (2)");
+
+    ItemProperty variantAttribute = new ItemProperty();
+    variantAttribute.setItem(item);
+    variantAttribute.setPropertyName("Variant: Ladder");
+    variantAttribute.setPropertyValue("Enhanced Damage");
+
+    when(itemRepository.findById(eq(2L))).thenReturn(Optional.of(item));
+    when(itemPropertyRepository.findByItemId(eq(2L)))
+        .thenReturn(Arrays.asList(variantDescription, variantAttribute));
+    when(itemSourceRepository.findByItemId(eq(2L))).thenReturn(Collections.emptyList());
+    when(itemNoteRepository.findByItemIdOrderByCreatedAtDesc(eq(2L)))
+        .thenReturn(Collections.emptyList());
+
+    ItemDetailResponse detail = itemService.getItemDetail(2L);
+
+    assertEquals(1, detail.getVariants().size());
+    ItemVariantResponse variant = detail.getVariants().get(0);
+    assertEquals("Ladder", variant.getLabel());
+    assertEquals("Socketed (2)", variant.getDescription());
+    assertEquals(Collections.singletonList("Enhanced Damage"), variant.getAttributes());
   }
 }

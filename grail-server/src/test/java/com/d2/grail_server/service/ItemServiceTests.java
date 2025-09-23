@@ -139,4 +139,79 @@ class ItemServiceTests {
     assertEquals("Cannot die", hardcoreVariant.getDescription());
     assertEquals(Collections.singletonList("Extra Life"), hardcoreVariant.getAttributes());
   }
+
+  @Test
+  void getItemDetailMergesDuplicateVariantEntries() {
+    Item item = new Item();
+    item.setId(4L);
+    item.setName("Mirror Shard");
+
+    ItemProperty first = new ItemProperty();
+    first.setItem(item);
+    first.setPropertyName("Variant: Maze");
+    first.setPropertyValue("First drop");
+
+    ItemProperty second = new ItemProperty();
+    second.setItem(item);
+    second.setPropertyName("Variant: Maze");
+    second.setPropertyValue("+5% FCR");
+
+    ItemProperty third = new ItemProperty();
+    third.setItem(item);
+    third.setPropertyName("Variant: Maze");
+    third.setPropertyValue("Cold Resist");
+
+    when(itemRepository.findById(eq(4L))).thenReturn(Optional.of(item));
+    when(itemPropertyRepository.findByItemId(eq(4L)))
+        .thenReturn(Arrays.asList(first, second, third));
+    when(itemSourceRepository.findByItemId(eq(4L))).thenReturn(Collections.emptyList());
+    when(itemNoteRepository.findByItemIdOrderByCreatedAtDesc(eq(4L)))
+        .thenReturn(Collections.emptyList());
+
+    ItemDetailResponse detail = itemService.getItemDetail(4L);
+
+    assertEquals(1, detail.getVariants().size());
+    ItemVariantResponse variant = detail.getVariants().get(0);
+    assertEquals("Maze", variant.getLabel());
+    assertEquals("First drop", variant.getDescription());
+    assertEquals(Arrays.asList("+5% FCR", "Cold Resist"), variant.getAttributes());
+  }
+
+  @Test
+  void getItemDetailNormalisesLabelPunctuation() {
+    Item item = new Item();
+    item.setId(5L);
+    item.setName("Storm Crest");
+
+    ItemProperty colonSpacing = new ItemProperty();
+    colonSpacing.setItem(item);
+    colonSpacing.setPropertyName("Variant : Hardcore");
+    colonSpacing.setPropertyValue("Hardcore-safe");
+
+    ItemProperty dashSpacing = new ItemProperty();
+    dashSpacing.setItem(item);
+    dashSpacing.setPropertyName("Variant- Ladder");
+    dashSpacing.setPropertyValue("Ladder bonus");
+
+    when(itemRepository.findById(eq(5L))).thenReturn(Optional.of(item));
+    when(itemPropertyRepository.findByItemId(eq(5L)))
+        .thenReturn(Arrays.asList(colonSpacing, dashSpacing));
+    when(itemSourceRepository.findByItemId(eq(5L))).thenReturn(Collections.emptyList());
+    when(itemNoteRepository.findByItemIdOrderByCreatedAtDesc(eq(5L)))
+        .thenReturn(Collections.emptyList());
+
+    ItemDetailResponse detail = itemService.getItemDetail(5L);
+
+    assertEquals(2, detail.getVariants().size());
+    ItemVariantResponse hardcore = detail.getVariants().get(0);
+    ItemVariantResponse ladder = detail.getVariants().get(1);
+
+    assertEquals("Hardcore", hardcore.getLabel());
+    assertEquals("Hardcore-safe", hardcore.getDescription());
+    assertTrue(hardcore.getAttributes().isEmpty());
+
+    assertEquals("Ladder", ladder.getLabel());
+    assertEquals("Ladder bonus", ladder.getDescription());
+    assertTrue(ladder.getAttributes().isEmpty());
+  }
 }

@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import AppShell from './components/AppShell'
 import ItemsPage from './features/items/ItemsPage'
+import SetsRunewordsPage from './features/sets/SetsRunewordsPage'
 import './App.css'
 
 const router = createBrowserRouter([
@@ -18,12 +19,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'sets',
-        element: (
-          <ComingSoon
-            title="Sets & Runewords"
-            description="Track set items and runeword progress from a single hub."
-          />
-        ),
+        element: <SetsRunewordsPage />,
       },
       {
         path: 'stats',

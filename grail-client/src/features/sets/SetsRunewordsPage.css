@@ -56,6 +56,16 @@
   font-size: var(--font-size-sm);
 }
 
+.sets-page__state {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.sets-page__state--error {
+  color: #fca5a5;
+}
+
 .collection-grid {
   width: 100%;
 }
@@ -267,4 +277,3 @@
     grid-template-columns: auto 1fr;
   }
 }
-

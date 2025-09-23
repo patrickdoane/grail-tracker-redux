@@ -3,7 +3,7 @@
 """Build a frozen Diablo II: Resurrected Holy Grail reference list."""
 
 from __future__ import annotations
-from scripts.d2_holy_grail_scraper import (  # type: ignore  # runtime import
+from d2_holy_grail_scraper import (  # type: ignore  # runtime import
     CacheConfig,
     FANDOM_BASE,
     PAGE_TITLES,
@@ -12,6 +12,7 @@ from scripts.d2_holy_grail_scraper import (  # type: ignore  # runtime import
     parse_all_set_items,
     parse_all_uniques,
     parse_runes,
+    parse_runewords,
 )
 
 import json
@@ -50,6 +51,10 @@ def main(include_sunders=True, facet_variants=True):
         uniques = [u for u in uniques if "sunder charm" not in u["name"].lower()]
     rows.extend(uniques)
 
+    # Runewords
+    runewords = parse_runewords(cache_cfg)
+    rows.extend(runewords)
+
     # Runes
     runes = parse_runes(cache_cfg)
     rows.extend(runes)
@@ -78,11 +83,13 @@ def main(include_sunders=True, facet_variants=True):
                 "Uniques: 385 if excluding Sunder charms; 391 if including.",
                 "Includes 8 Rainbow Facet variants separately.",
                 "Sets: 32 sets / 127 pieces.",
+                f"Runewords: {len(runewords)} across weapon/armour/helm/shield bases.",
                 "Runes: 33 (El..Zod).",
             ],
             "options": {
                 "include_sunders": include_sunders,
                 "facet_variants": facet_variants,
+                "include_runewords": True,
             },
             "summary": {
                 "category_counts": dict(totals),

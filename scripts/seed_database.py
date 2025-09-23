@@ -21,7 +21,7 @@ from typing import Dict
 import psycopg
 
 TRUNCATE_SQL = """
-TRUNCATE TABLE item_properties, item_sources, user_items, items RESTART IDENTITY;
+TRUNCATE TABLE item_notes, item_properties, item_sources, user_items, items RESTART IDENTITY;
 """
 
 CREATE_STAGING_SQL = """
@@ -59,6 +59,22 @@ SELECT i.id, 'Set Name', s.set_name
 FROM staging_grail_items s
 JOIN items i ON lower(i.name) = lower(s.name)
 WHERE s.set_name <> '';
+"""
+
+INSERT_RUNEWORD_BASES_SQL = """
+INSERT INTO item_properties (item_id, property_name, property_value)
+SELECT i.id, 'Runeword Bases', s.subcategory
+FROM staging_grail_items s
+JOIN items i ON lower(i.name) = lower(s.name)
+WHERE s.category = 'Runeword' AND s.subcategory <> '';
+"""
+
+INSERT_RUNEWORD_DETAILS_SQL = """
+INSERT INTO item_properties (item_id, property_name, property_value)
+SELECT i.id, 'Runeword Details', s.variant
+FROM staging_grail_items s
+JOIN items i ON lower(i.name) = lower(s.name)
+WHERE s.category = 'Runeword' AND s.variant <> '';
 """
 
 INSERT_SOURCES_SQL = """
@@ -147,6 +163,10 @@ def seed_database(
 
             print("Linking set metadata ...", flush=True)
             cur.execute(INSERT_PROPERTIES_SQL)
+
+            print("Linking runeword metadata ...", flush=True)
+            cur.execute(INSERT_RUNEWORD_BASES_SQL)
+            cur.execute(INSERT_RUNEWORD_DETAILS_SQL)
 
             print("Linking source URLs ...", flush=True)
             cur.execute(INSERT_SOURCES_SQL)

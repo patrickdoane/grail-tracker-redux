@@ -12,108 +12,83 @@ import {
   Stack,
   StatusBadge,
 } from '../../components/ui'
+import { getApiErrorMessage } from '../../lib/apiClient'
 import { classNames } from '../../lib/classNames'
+import { useCollectionsQuery } from './useCollectionsQuery'
+import type { CollectionSummary, CollectionItem } from './setsApi'
 import './SetsRunewordsPage.css'
 
-type CollectionType = 'set' | 'runeword'
-
-type CollectionItem = {
-  id: string
-  name: string
-  slot: string
-  found: boolean
+type SectionConfig = {
+  title: string
+  description: string
+  type: CollectionSummary['type']
 }
 
-type CollectionSummary = {
-  id: string
-  name: string
-  type: CollectionType
-  lore?: string
-  items: CollectionItem[]
-}
-
-const COLLECTIONS: CollectionSummary[] = [
+const SECTIONS: SectionConfig[] = [
   {
-    id: 'set-tal-rasha',
-    name: "Tal Rasha's Wrappings",
+    title: 'Class Sets',
+    description: 'Reforge archetype-defining bonuses by completing each armor ensemble.',
     type: 'set',
-    lore: 'A cornerstone Sorceress set prized for its resistances and elemental mastery.',
-    items: [
-      { id: 'tal-mask', name: "Tal Rasha's Horadric Crest", slot: 'Helm', found: true },
-      { id: 'tal-armor', name: "Tal Rasha's Guardianship", slot: 'Armor', found: false },
-      { id: 'tal-belt', name: "Tal Rasha's Fine-Spun Cloth", slot: 'Belt', found: false },
-      { id: 'tal-amulet', name: "Tal Rasha's Adjudication", slot: 'Amulet', found: true },
-      { id: 'tal-orb', name: "Tal Rasha's Lidless Eye", slot: 'Orb', found: false },
-    ],
   },
   {
-    id: 'set-griswold',
-    name: "Griswold's Legacy",
-    type: 'set',
-    lore: 'Paladin-centric plate with powerful aura synergy once fully assembled.',
-    items: [
-      { id: 'gris-armor', name: "Griswold's Heart", slot: 'Armor', found: false },
-      { id: 'gris-shield', name: "Griswold's Honor", slot: 'Shield', found: false },
-      { id: 'gris-helm', name: "Griswold's Valor", slot: 'Helm', found: false },
-      { id: 'gris-weapon', name: "Griswold's Redemption", slot: 'Caduceus', found: false },
-    ],
-  },
-  {
-    id: 'runeword-enigma',
-    name: 'Enigma',
+    title: 'Runewords',
+    description: 'Assemble rune sequences and bases to unlock endgame power boosts.',
     type: 'runeword',
-    lore: 'Grant teleport to any class by socketing Jah • Ith • Ber into body armor.',
-    items: [
-      { id: 'rune-jah', name: 'Jah Rune', slot: 'Rune', found: false },
-      { id: 'rune-ith', name: 'Ith Rune', slot: 'Rune', found: true },
-      { id: 'rune-ber', name: 'Ber Rune', slot: 'Rune', found: false },
-      { id: 'base-armor', name: '3os Body Armor Base', slot: 'Armor Base', found: true },
-    ],
-  },
-  {
-    id: 'runeword-spirit',
-    name: 'Spirit',
-    type: 'runeword',
-    lore: 'Staple caster runeword offering FCR and +skills in swords or shields.',
-    items: [
-      { id: 'rune-tal', name: 'Tal Rune', slot: 'Rune', found: true },
-      { id: 'rune-thul', name: 'Thul Rune', slot: 'Rune', found: true },
-      { id: 'rune-ort', name: 'Ort Rune', slot: 'Rune', found: true },
-      { id: 'rune-amn', name: 'Amn Rune', slot: 'Rune', found: true },
-      { id: 'base-4os', name: '4os Sword/Shield Base', slot: 'Base Item', found: true },
-    ],
   },
 ]
 
+const getUnitCopy = (collection: CollectionSummary) => {
+  if (collection.type === 'runeword') {
+    return {
+      singular: 'rune',
+      plural: 'runes',
+      verb: 'assembled',
+    }
+  }
+
+  return {
+    singular: 'piece',
+    plural: 'pieces',
+    verb: 'secured',
+  }
+}
+
 function SetsRunewordsPage() {
-  const [selectedCollection, setSelectedCollection] = useState<CollectionSummary | null>(null)
+  const collectionsQuery = useCollectionsQuery()
+  const data = collectionsQuery.data
+  const setCollections = useMemo(() => data?.sets ?? [], [data?.sets])
+  const runewordCollections = useMemo(() => data?.runewords ?? [], [data?.runewords])
 
-  const groupedCollections = useMemo(() => {
-    return COLLECTIONS.reduce(
-      (acc, collection) => {
-        acc[collection.type].push(collection)
-        return acc
-      },
-      {
-        set: [] as CollectionSummary[],
-        runeword: [] as CollectionSummary[],
-      },
-    )
-  }, [])
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null)
 
-  const openChecklist = (collection: CollectionSummary) => {
-    setSelectedCollection(collection)
+  const selectedCollection = useMemo(() => {
+    if (!selectedCollectionId) {
+      return null
+    }
+    return [...setCollections, ...runewordCollections].find(
+      (collection) => collection.id === selectedCollectionId,
+    ) ?? null
+  }, [selectedCollectionId, setCollections, runewordCollections])
+
+  const openChecklist = (collectionId: string) => {
+    setSelectedCollectionId(collectionId)
   }
 
   const closeChecklist = () => {
-    setSelectedCollection(null)
+    setSelectedCollectionId(null)
   }
 
   const renderCollectionCard = (collection: CollectionSummary) => {
-    const foundCount = collection.items.filter((item) => item.found).length
-    const totalCount = collection.items.length
+    const totalCount = collection.totalItems ?? collection.items.length
+    const foundCount =
+      collection.foundItems ?? collection.items.filter((item) => item.found).length
     const completion = totalCount > 0 ? Math.round((foundCount / totalCount) * 100) : 0
     const badgeVariant = collection.type === 'set' ? 'success' : 'info'
+    const unitCopy = getUnitCopy(collection)
+    const unitLabel = totalCount === 1 ? unitCopy.singular : unitCopy.plural
+
+    const previewItems = collection.items.slice(0, 3)
+    const remaining = Math.max(totalCount - previewItems.length, 0)
 
     return (
       <Card key={collection.id} className="collection-card">
@@ -121,7 +96,7 @@ function SetsRunewordsPage() {
           <Stack direction="horizontal" gap="sm" align="center" justify="between" className="collection-card__header">
             <div>
               <CardTitle>{collection.name}</CardTitle>
-              {collection.lore && <CardDescription>{collection.lore}</CardDescription>}
+              {collection.description && <CardDescription>{collection.description}</CardDescription>}
             </div>
             <StatusBadge variant={badgeVariant} subtle>
               {collection.type === 'set' ? 'Set' : 'Runeword'}
@@ -134,27 +109,47 @@ function SetsRunewordsPage() {
               <div className="collection-card__progress-fill" style={{ width: `${completion}%` }} />
             </div>
             <span className="collection-card__progress-label">
-              {foundCount} of {totalCount} pieces secured
+              {foundCount} of {totalCount} {unitLabel} {unitCopy.verb}
             </span>
           </div>
           <Stack gap="xs" className="collection-card__summary">
-            {collection.items.slice(0, 3).map((item) => (
-              <div key={item.id} className={classNames('collection-card__item', item.found && 'collection-card__item--found')}>
-                <span className="collection-card__item-name">{item.name}</span>
-                <span className="collection-card__item-slot">{item.slot}</span>
-              </div>
+            {previewItems.map((item) => (
+              <CollectionSummaryRow key={item.itemId ?? item.name} item={item} />
             ))}
-            {collection.items.length > 3 && (
-              <p className="collection-card__more">+{collection.items.length - 3} more checklist goals</p>
+            {remaining > 0 && (
+              <p className="collection-card__more">+{remaining} more checklist goals</p>
             )}
           </Stack>
         </CardContent>
         <CardFooter>
-          <Button variant="secondary" onClick={() => openChecklist(collection)}>
+          <Button variant="secondary" onClick={() => openChecklist(collection.id)}>
             Open Checklist
           </Button>
         </CardFooter>
       </Card>
+    )
+  }
+
+  const renderSection = (config: SectionConfig) => {
+    const collections = config.type === 'set' ? setCollections : runewordCollections
+
+    if (collectionsQuery.status === 'pending') {
+      return <p className="sets-page__state">Loading {config.type === 'set' ? 'sets' : 'runewords'}…</p>
+    }
+
+    if (collectionsQuery.status === 'error') {
+      const message = getApiErrorMessage(collectionsQuery.error, 'Unable to load collections right now.')
+      return <p className="sets-page__state sets-page__state--error">{message}</p>
+    }
+
+    if (collections.length === 0) {
+      return <p className="sets-page__state">No {config.type === 'set' ? 'sets' : 'runewords'} cataloged yet.</p>
+    }
+
+    return (
+      <Grid className="collection-grid" minItemWidth="22rem" gap="lg">
+        {collections.map(renderCollectionCard)}
+      </Grid>
     )
   }
 
@@ -169,30 +164,35 @@ function SetsRunewordsPage() {
         </p>
       </header>
 
-      <section className="sets-section">
-        <div className="sets-section__header">
-          <h2>Class Sets</h2>
-          <p>Reforge archetype-defining bonuses by completing each armor ensemble.</p>
-        </div>
-        <Grid className="collection-grid" minItemWidth="22rem" gap="lg">
-          {groupedCollections.set.map(renderCollectionCard)}
-        </Grid>
-      </section>
-
-      <section className="sets-section">
-        <div className="sets-section__header">
-          <h2>Runewords</h2>
-          <p>Assemble rune sequences and bases to unlock endgame power boosts.</p>
-        </div>
-        <Grid className="collection-grid" minItemWidth="22rem" gap="lg">
-          {groupedCollections.runeword.map(renderCollectionCard)}
-        </Grid>
-      </section>
+      {SECTIONS.map((section) => (
+        <section key={section.type} className="sets-section">
+          <div className="sets-section__header">
+            <h2>{section.title}</h2>
+            <p>{section.description}</p>
+          </div>
+          {renderSection(section)}
+        </section>
+      ))}
 
       {selectedCollection && (
         <CollectionChecklist collection={selectedCollection} onClose={closeChecklist} />
       )}
     </Container>
+  )
+}
+
+type CollectionSummaryRowProps = {
+  item: CollectionItem
+}
+
+function CollectionSummaryRow({ item }: CollectionSummaryRowProps) {
+  return (
+    <div className={classNames('collection-card__item', item.found && 'collection-card__item--found')}>
+      <span className="collection-card__item-name">{item.name}</span>
+      {item.slot && item.slot.trim() !== '' && (
+        <span className="collection-card__item-slot">{item.slot}</span>
+      )}
+    </div>
   )
 }
 
@@ -202,20 +202,14 @@ type CollectionChecklistProps = {
 }
 
 function CollectionChecklist({ collection, onClose }: CollectionChecklistProps) {
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose()
-      }
-    }
+  useTrapEscape(onClose)
 
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
-
-  const foundCount = collection.items.filter((item) => item.found).length
-  const totalCount = collection.items.length
+  const foundCount =
+    collection.foundItems ?? collection.items.filter((item) => item.found).length
+  const totalCount = collection.totalItems ?? collection.items.length
   const completion = totalCount > 0 ? Math.round((foundCount / totalCount) * 100) : 0
+  const unitCopy = getUnitCopy(collection)
+  const unitLabel = totalCount === 1 ? unitCopy.singular : unitCopy.plural
 
   return (
     <div className="collection-checklist" role="presentation">
@@ -237,26 +231,28 @@ function CollectionChecklist({ collection, onClose }: CollectionChecklistProps) 
               Close
             </Button>
           </Stack>
-          {collection.lore && (
+          {collection.description && (
             <p id="collection-checklist-description" className="collection-checklist__lead">
-              {collection.lore}
+              {collection.description}
             </p>
           )}
           <div className="collection-checklist__progress">
             <span>{completion}% complete</span>
             <span>
-              {foundCount} / {totalCount} items secured
+              {foundCount} / {totalCount} {unitLabel} {unitCopy.verb}
             </span>
           </div>
         </header>
 
         <ul className="collection-checklist__list">
           {collection.items.map((item) => (
-            <li key={item.id} className="collection-checklist__item">
+            <li key={item.itemId ?? item.name} className="collection-checklist__item">
               <label className="collection-checklist__item-label">
                 <input type="checkbox" checked={item.found} readOnly />
                 <span className="collection-checklist__item-name">{item.name}</span>
-                <span className="collection-checklist__item-slot">{item.slot}</span>
+                {item.slot && item.slot.trim() !== '' && (
+                  <span className="collection-checklist__item-slot">{item.slot}</span>
+                )}
               </label>
             </li>
           ))}
@@ -270,6 +266,19 @@ function CollectionChecklist({ collection, onClose }: CollectionChecklistProps) 
       </div>
     </div>
   )
+}
+
+function useTrapEscape(onClose: () => void) {
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
 }
 
 export default SetsRunewordsPage

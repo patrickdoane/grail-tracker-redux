@@ -65,6 +65,29 @@ PAGE_TITLES = {
 # Optional rune list source (falls back to canonical list on any error)
 RUNE_LIST_URL = "https://diablo2.diablowiki.net/Rune_list"
 
+RUNEWORD_PAGES = [
+    {
+        "title": "List_of_Weapon_Rune_Words",
+        "label": "Weapon",
+        "parser": "weapon",
+    },
+    {
+        "title": "List_of_Armor_Rune_Words",
+        "label": "Armor",
+        "parser": "armor",
+    },
+    {
+        "title": "List_of_Helm_Rune_Words",
+        "label": "Helm",
+        "parser": "armor",
+    },
+    {
+        "title": "List_of_Shield_Rune_Words",
+        "label": "Shield",
+        "parser": "shield",
+    },
+]
+
 UNIQUES_EXCLUDE_TERMS = {
     # headers / mechanics / categories that showed up in your JSON
     "item name",
@@ -1144,6 +1167,272 @@ def parse_runes(cache_cfg: CacheConfig, url: str = RUNE_LIST_URL) -> List[Dict]:
     return [{"name": n, "category": "Rune", "source_url": url} for n in canonical]
 
 
+def _clean_cell_text(node) -> str:
+    """Normalise whitespace and dash markers from a wiki table cell."""
+
+    if node is None:
+        return ""
+    txt = node.get_text(" ", strip=True)
+    txt = (txt or "").replace("\xa0", " ")
+    txt = re.sub(r"\s+", " ", txt)
+    return txt.strip()
+
+
+def _is_placeholder(text: str) -> bool:
+    """Return True when a cell contains a placeholder dash instead of data."""
+
+    return text in {"", "-", "–", "—", "N/A", "n/a", "No"}
+
+
+def _extract_runeword_name_and_runes(cell) -> tuple[str, str]:
+    """Return the runeword name and rune order from the first column."""
+
+    link = cell.find("a", href=True)
+    name = extract_title_text(link) if link else _clean_cell_text(cell)
+    raw = _clean_cell_text(cell)
+    remainder = raw
+    if name and raw.lower().startswith(name.lower()):
+        remainder = raw[len(name) :].strip()
+    rune_match = re.search(r"'([^']+)'", remainder)
+    runes = ""
+    if rune_match:
+        rune_tokens = [tok for tok in rune_match.group(1).split() if tok]
+        if rune_tokens:
+            runes = " + ".join(rune_tokens)
+    return name.strip(), runes
+
+
+def _extract_highest_rune(cell) -> str:
+    """Extract the highest rune listed in the runeword table row."""
+
+    text = _clean_cell_text(cell)
+    if _is_placeholder(text):
+        return ""
+    m = re.match(r"([A-Za-z']+)", text)
+    if m:
+        return m.group(1)
+    return text
+
+
+def _normalize_ladder(cell) -> str:
+    """Normalise ladder-only markers to a consistent label."""
+
+    text = _clean_cell_text(cell)
+    if _is_placeholder(text):
+        return ""
+    lowered = text.lower()
+    if lowered in {"yes", "ladder", "ladder only", "ladder-only"}:
+        return "Ladder only"
+    if lowered in {"battle.net", "battle.net only"}:
+        return "Battle.net ladder"
+    if lowered == "no":
+        return ""
+    return text
+
+
+def _merge_runeword_entry(
+    store: Dict[str, Dict], row: Dict[str, object]
+) -> Dict[str, Dict]:
+    """Merge a parsed runeword row into the accumulator keyed by name."""
+
+    key = row["name"].lower()  # type: ignore[index]
+    existing = store.get(key)
+    if not existing:
+        store[key] = {
+            "name": row["name"],
+            "runes": row.get("runes", ""),
+            "bases": list(row.get("bases", [])),
+            "sockets": row.get("sockets", ""),
+            "highest_rune": row.get("highest_rune", ""),
+            "ladder": row.get("ladder", ""),
+            "sources": list(row.get("sources", [])),
+        }
+        return store
+
+    for base in row.get("bases", []):
+        if base not in existing["bases"]:
+            existing["bases"].append(base)
+
+    for src in row.get("sources", []):
+        if src not in existing["sources"]:
+            existing["sources"].append(src)
+
+    if not existing.get("runes") and row.get("runes"):
+        existing["runes"] = row["runes"]
+
+    if not existing.get("sockets") and row.get("sockets"):
+        existing["sockets"] = row["sockets"]
+
+    if not existing.get("highest_rune") and row.get("highest_rune"):
+        existing["highest_rune"] = row["highest_rune"]
+
+    if not existing.get("ladder") and row.get("ladder"):
+        existing["ladder"] = row["ladder"]
+
+    return store
+
+
+def _parse_weapon_runewords(table, source_url: str) -> List[Dict[str, object]]:
+    """Parse the weapon rune word matrix which lists allowed base weapon types."""
+
+    headers = [th.get_text(" ", strip=True) for th in table.find_all("th")]
+    results: List[Dict[str, object]] = []
+    for tr in table.find_all("tr"):
+        cells = tr.find_all("td")
+        if not cells:
+            continue
+        name, runes = _extract_runeword_name_and_runes(cells[0])
+        if not name:
+            continue
+
+        base_labels: List[str] = []
+        for header, cell in zip(headers[1:16], cells[1:16]):
+            value = _clean_cell_text(cell)
+            if _is_placeholder(value):
+                continue
+            label = header.replace("?", "").strip()
+            if label:
+                base_labels.append(label)
+
+        base_caption = "Weapon"
+        if base_labels:
+            base_caption = f"Weapon ({', '.join(base_labels)})"
+
+        sockets = _clean_cell_text(cells[16]) if len(cells) > 16 else ""
+        highest = _extract_highest_rune(cells[17]) if len(cells) > 17 else ""
+        ladder = _normalize_ladder(cells[18]) if len(cells) > 18 else ""
+
+        results.append(
+            {
+                "name": name,
+                "runes": runes,
+                "bases": [base_caption],
+                "sockets": sockets,
+                "highest_rune": highest,
+                "ladder": ladder,
+                "sources": [source_url],
+            }
+        )
+    return results
+
+
+def _parse_simple_runewords(
+    table,
+    source_url: str,
+    label: str,
+    *,
+    has_ladder_column: bool,
+    include_restriction: bool = False,
+) -> List[Dict[str, object]]:
+    """Parse the armour/helm/shield rune word tables."""
+
+    results: List[Dict[str, object]] = []
+    for tr in table.find_all("tr"):
+        cells = tr.find_all("td")
+        if not cells:
+            continue
+        name, runes = _extract_runeword_name_and_runes(cells[0])
+        if not name:
+            continue
+
+        sockets = _clean_cell_text(cells[1]) if len(cells) > 1 else ""
+        highest = _extract_highest_rune(cells[2]) if len(cells) > 2 else ""
+
+        ladder = ""
+        restriction_note = ""
+        if has_ladder_column:
+            ladder = _normalize_ladder(cells[3]) if len(cells) > 3 else ""
+        elif include_restriction and len(cells) > 3:
+            restriction_note = _clean_cell_text(cells[3])
+
+        base_label = label
+        if restriction_note and not _is_placeholder(restriction_note):
+            base_label = f"{label} ({restriction_note})"
+
+        results.append(
+            {
+                "name": name,
+                "runes": runes,
+                "bases": [base_label],
+                "sockets": sockets,
+                "highest_rune": highest,
+                "ladder": ladder,
+                "sources": [source_url],
+            }
+        )
+    return results
+
+
+def parse_runewords(cache_cfg: CacheConfig) -> List[Dict]:
+    """Collect runeword data from the various Fandom list pages."""
+
+    aggregated: Dict[str, Dict] = {}
+    for cfg in RUNEWORD_PAGES:
+        page_title = cfg["title"]
+        source_url = wiki_url(page_title)
+        soup = soup_from_page_title(page_title, cache_cfg)
+        table = soup.find("table")
+        if not table:
+            print(f"[warn] Runeword page missing table: {page_title}", file=sys.stderr)
+            continue
+
+        parser = cfg["parser"]
+        if parser == "weapon":
+            rows = _parse_weapon_runewords(table, source_url)
+        elif parser == "shield":
+            rows = _parse_simple_runewords(
+                table,
+                source_url,
+                cfg["label"],
+                has_ladder_column=False,
+                include_restriction=True,
+            )
+        else:
+            rows = _parse_simple_runewords(
+                table, source_url, cfg["label"], has_ladder_column=True
+            )
+
+        for row in rows:
+            aggregated = _merge_runeword_entry(aggregated, row)
+
+    output: List[Dict] = []
+    for key in sorted(aggregated.keys()):
+        data = aggregated[key]
+        bases = data.get("bases", [])
+        subcategory = " / ".join(bases) if bases else "Runeword"
+
+        parts: List[str] = []
+        if data.get("runes"):
+            parts.append(f"Runes: {data['runes']}")
+        if data.get("sockets"):
+            sockets_txt = str(data["sockets"])
+            m = re.search(r"(\d+)\s*sockets?", sockets_txt, re.I)
+            sockets_value = m.group(1) if m else sockets_txt
+            parts.append(f"Sockets: {sockets_value}")
+        if data.get("highest_rune"):
+            parts.append(f"Highest rune: {data['highest_rune']}")
+        if data.get("ladder"):
+            parts.append(f"Ladder: {data['ladder']}")
+
+        variant = " | ".join(parts)
+        sources = data.get("sources", [])
+        source_url = sources[0] if sources else wiki_url("Rune_Words")
+
+        output.append(
+            {
+                "name": data["name"],
+                "category": "Runeword",
+                "subcategory": subcategory,
+                "set_name": "",
+                "tier": "Runeword",
+                "variant": variant,
+                "source_url": source_url,
+            }
+        )
+
+    return output
+
+
 def sanity_check_uniques(unique_rows: list[dict]):
     """Warn if scraped unique rows still contain header/mechanics placeholders."""
 
@@ -1241,6 +1530,11 @@ def main():
         "--include-runes", action="store_true", help="Include runes in output"
     )
     ap.add_argument(
+        "--include-runewords",
+        action="store_true",
+        help="Include runewords in output",
+    )
+    ap.add_argument(
         "--facet-variants",
         action="store_true",
         help="Track 8 Rainbow Facet variants instead of one",
@@ -1292,6 +1586,11 @@ def main():
         runes = parse_runes(cache_cfg)
         all_rows.extend(runes)
 
+    if args.include_runewords:
+        print("[*] Parsing Runewords...")
+        runewords = parse_runewords(cache_cfg)
+        all_rows.extend(runewords)
+
     # Build structured JSON
     out = {
         "meta": {
@@ -1302,6 +1601,7 @@ def main():
                 "runes": RUNE_LIST_URL,
             },
             "include_runes": bool(args.include_runes),
+            "include_runewords": bool(args.include_runewords),
             "facet_variants": bool(args.facet_variants),
             "notes": [
                 "Pulled via Fandom MediaWiki API (action=parse, prop=text) to avoid 403s.",
@@ -1316,6 +1616,9 @@ def main():
                 "Set": sum(1 for r in all_rows if r.get("category") == "Set"),
                 "Unique": sum(1 for r in all_rows if r.get("category") == "Unique"),
                 "Rune": sum(1 for r in all_rows if r.get("category") == "Rune"),
+                "Runeword": sum(
+                    1 for r in all_rows if r.get("category") == "Runeword"
+                ),
                 "Total": len(all_rows),
             }
         },

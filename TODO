@@ -47,14 +47,16 @@
   ✔ Include floating action button for quick "Add find" logging with optimistic updates @done(25-09-25 11:40)
 ☐ Create item detail view @started(25-09-23 09:32)
   ✔ Implement hero banner with rarity ribbon, item art, and quick action buttons @done(25-09-23 08:33)
-  - Add Overview, Drop Sources, Variants, and Notes tabs/accordions with responsive collapse
+  ✔ Add Overview, Drop Sources, Variants, and Notes tabs/accordions with responsive collapse @done(25-09-23 17:13)
     ✔ Ship tabbed + accordion variant layout with fallback list for legacy paths
-  - Wire external wiki link and track outbound analytics event
+  ✔ Wire external wiki link and track outbound analytics event @done(25-09-23 18:26)
   - Stand up telemetry capture for detail interactions
     - Define outbound link event contract and payload requirements
     - Implement telemetry queue/transport with sendBeacon + fetch fallback
     - Integrate wiki button clicks with telemetry client @done(25-09-23 09:14)
-    - Expose `VITE_TELEMETRY_ENDPOINT` configuration and document rollout steps
+    ✔ Expose `VITE_TELEMETRY_ENDPOINT` configuration and document rollout steps @done(25-09-25 12:20)
+  ✔ Surface runeword recipe guidance in Overview panel @done(25-09-23 16:02)
+  ☐ Enable rune-by-rune tracking (mark owned, deep link to rune entries)
 ☐ Implement Sets & Runewords page @started(25-09-23 09:32)
   ✔ Build collection cards with progress bars and checklist modal/sheet @done(25-09-23 09:39)
   ✔ Support toggling between set/runeword views with filter chips and saved URL params

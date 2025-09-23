@@ -2,6 +2,8 @@ TODOS
 .project
 .vscode/
 env.properties
+grail-client/.env
+grail-client/.env.local
 .cache/
 .cache_ref/
 __pycache__/

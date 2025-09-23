@@ -1,69 +1,40 @@
-# React + TypeScript + Vite
+# Grail Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The Grail Tracker frontend is a Vite-powered React + TypeScript application. It talks to the Spring Boot API via JSON requests and surfaces Holy Grail progress tracking UI.
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Node.js 18+
+- npm (bundled with Node 18)
 
-## Expanding the ESLint configuration
+## Installing Dependencies
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd grail-client
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Environment Variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- Copy `.env.example` to `.env.local` (or `.env`) and set values as needed.
+- `VITE_TELEMETRY_ENDPOINT` controls where telemetry payloads are POSTed. Provide a full HTTPS URL to enable delivery or leave it blank to keep events logged to the console during development.
+- Restart the dev server after changing env files so Vite reloads `import.meta.env` values.
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Scripts
+
+- `npm run dev` – start the Vite dev server on port 5173.
+- `npm run build` – generate a production build in `dist/`.
+- `npm run preview` – serve the production build locally.
+- `npm run lint` – run ESLint with the project configuration.
+
+## Telemetry Overview
+
+Telemetry events funnel through `src/lib/telemetry.ts`. When `VITE_TELEMETRY_ENDPOINT` is defined, the client will attempt `navigator.sendBeacon` first, falling back to `fetch` with `keepalive`. Without an endpoint the events stay in-memory and are logged to the console, which is the recommended local workflow.
+
+## Project Structure Highlights
+
+- `src/components/ui/` contains the shared design system primitives (Button, Card, Stack, etc.).
+- `src/features/` houses feature modules. For example, item detail telemetry wiring lives in `src/features/items/ItemDetailPanel.tsx`.
+- `public/` stores static assets that Vite serves as-is.
+
+Refer to the repository root `README.md` for full-stack setup details, backend configuration, and seeding instructions.

@@ -53,6 +53,12 @@ A ground-up rebuild of the Diablo II Holy Grail tracker featuring a React (Vite)
   > `mockito-core` to `target/mockito-agent.jar` and launches the forked JVM with `-javaagent`. If you invoke the tests
   > outside Maven, mirror that flag to avoid `ByteBuddy`/self-attach errors on JDK 22.
 
+## Telemetry Configuration
+
+- Copy `grail-client/.env.example` to `grail-client/.env.local` (or `.env`) and set `VITE_TELEMETRY_ENDPOINT` to the HTTPS endpoint that should receive telemetry payloads.
+- Leave the value blank in local development to keep events in the in-memory queue; the client will log them to the console instead of sending network requests.
+- Restart the Vite dev server after changing the env file so `import.meta.env` picks up the new value.
+
 ### Shared UI Component Library
 
 The React client ships with a design system under `grail-client/src/components/ui`. Import components from the directory root to automatically include styles:

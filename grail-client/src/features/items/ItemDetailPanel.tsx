@@ -10,6 +10,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button, Card, CardContent, Stack, StatusBadge } from '../../components/ui'
 import { classNames } from '../../lib/classNames'
+import { trackTelemetryEvent } from '../../lib/telemetry'
 import { getApiErrorMessage } from '../../lib/apiClient'
 import { useItemDetailQuery } from './useItemDetails'
 import {
@@ -822,14 +823,8 @@ function formatNoteTimestamp(value: string): string {
 }
 
 function handleOpenWiki(url: string, itemId: number) {
-  trackAnalyticsEvent('outbound_link', { url, itemId, source: 'item_detail' })
+  trackTelemetryEvent('outbound_link', { url, itemId, source: 'item_detail' })
   window.open(url, '_blank', 'noopener,noreferrer')
-}
-
-function trackAnalyticsEvent(name: string, payload: Record<string, unknown>) {
-  const timestamp = new Date().toISOString()
-  // Centralize analytics logging for now; plug in real tracking later.
-  console.info(`[analytics] ${name}`, { timestamp, ...payload })
 }
 
 function deriveHeroArt(item: Item, properties: ItemProperty[], fallbackInitial: string): HeroArt {

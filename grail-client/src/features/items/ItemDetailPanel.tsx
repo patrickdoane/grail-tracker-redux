@@ -6,6 +6,7 @@ import {
   type CSSProperties,
   type ChangeEvent,
   type FormEvent,
+  type MouseEvent,
 } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button, Card, CardContent, Stack, StatusBadge } from '../../components/ui'
@@ -261,10 +262,7 @@ function ItemDetailPanel({
 
   const setName = useMemo(() => findPropertyValue(properties, 'Set Name'), [properties])
 
-  const wikiUrl = useMemo(() => {
-    const preferred = sources.find((source) => source.sourceType?.toLowerCase() === 'wiki')
-    return preferred?.sourceName ?? null
-  }, [sources])
+  const wikiUrl = useMemo(() => getWikiSourceUrl(sources), [sources])
 
   const handleSelectSection = useCallback((sectionId: SectionId) => {
     setActiveSection(sectionId)
@@ -361,7 +359,7 @@ function ItemDetailPanel({
                 {wikiUrl && (
                   <Button
                     variant="secondary"
-                    onClick={() => handleOpenWiki(wikiUrl, detailItem.id)}
+                    onClick={(event) => handleOpenWiki(wikiUrl, detailItem.id, 'hero', event)}
                     trailingIcon={<ExternalLinkIcon />}
                   >
                     Open wiki
@@ -574,12 +572,32 @@ function renderSectionContent({
             <p className="item-detail__state">Refreshing drop sources…</p>
           )}
           <ul className="item-detail__list">
-            {sources.map((source) => (
-              <li key={source.id}>
-                <span className="item-detail__list-label">{formatSourceType(source.sourceType)}</span>
-                <span className="item-detail__list-value">{source.sourceName}</span>
-              </li>
-            ))}
+            {sources.map((source) => {
+              const isWiki = isWikiSourceType(source.sourceType)
+              const url = isWiki ? source.sourceName : null
+              const canLink = isWiki && isValidExternalUrl(url)
+              const displayValue = canLink && url ? formatExternalLinkLabel(url) : source.sourceName
+              return (
+                <li key={source.id}>
+                  <span className="item-detail__list-label">
+                    {formatSourceType(source.sourceType)}
+                  </span>
+                  {canLink && url ? (
+                    <a
+                      className="item-detail__list-value item-detail__list-link"
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(event) => handleOpenWiki(url, item.id, 'sources', event)}
+                    >
+                      {displayValue}
+                    </a>
+                  ) : (
+                    <span className="item-detail__list-value">{displayValue}</span>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </div>
       )
@@ -965,8 +983,14 @@ function formatNoteTimestamp(value: string): string {
   return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-function handleOpenWiki(url: string, itemId: number) {
-  trackTelemetryEvent('outbound_link', { url, itemId, source: 'item_detail' })
+function handleOpenWiki(
+  url: string,
+  itemId: number,
+  origin: 'hero' | 'sources',
+  event?: MouseEvent<HTMLElement>,
+) {
+  event?.preventDefault()
+  trackTelemetryEvent('outbound_link', { url, itemId, source: 'item_detail', origin })
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
@@ -1028,6 +1052,41 @@ function createVariantKey(label: string, index: number): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
   return `variant-${slug || 'entry'}-${index}`
+}
+
+function getWikiSourceUrl(sources: ItemSource[]): string | null {
+  const candidate = sources.find((source) => {
+    if (!isWikiSourceType(source.sourceType)) {
+      return false
+    }
+    return isValidExternalUrl(source.sourceName)
+  })
+  return candidate?.sourceName ?? null
+}
+
+function isWikiSourceType(value: string | null | undefined): boolean {
+  return (value ?? '').toLowerCase() === 'wiki'
+}
+
+function isValidExternalUrl(value: string | null | undefined): value is string {
+  if (!value) {
+    return false
+  }
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' || url.protocol === 'http:'
+  } catch {
+    return false
+  }
+}
+
+function formatExternalLinkLabel(url: string): string {
+  try {
+    const parsed = new URL(url)
+    return parsed.hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
 }
 
 function ExternalLinkIcon() {

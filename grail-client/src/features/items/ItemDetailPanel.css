@@ -347,6 +347,17 @@
   word-break: break-word;
 }
 
+.item-detail__list-link {
+  color: var(--accent-arcane);
+  transition: color var(--transition-base);
+}
+
+.item-detail__list-link:hover,
+.item-detail__list-link:focus {
+  color: var(--accent-gilded);
+  text-decoration: underline;
+}
+
 .item-detail__variants {
   display: flex;
   flex-direction: column;

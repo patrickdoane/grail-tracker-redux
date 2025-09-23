@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.d2.grail_server.dto.ItemNoteRequest;
+import com.d2.grail_server.dto.ItemNoteRequest;
 import com.d2.grail_server.dto.ItemPropertyRequest;
 import com.d2.grail_server.dto.ItemRequest;
 import com.d2.grail_server.dto.ItemResponse;
@@ -15,6 +17,7 @@ import com.d2.grail_server.dto.ItemSourceRequest;
 import com.d2.grail_server.dto.UserItemRequest;
 import com.d2.grail_server.dto.UserRequest;
 import com.d2.grail_server.dto.UserResponse;
+import com.d2.grail_server.repository.ItemNoteRepository;
 import com.d2.grail_server.repository.ItemPropertyRepository;
 import com.d2.grail_server.repository.ItemRepository;
 import com.d2.grail_server.repository.ItemSourceRepository;
@@ -42,6 +45,7 @@ class CrudIntegrationTests {
   @Autowired private ObjectMapper objectMapper;
 
   @Autowired private UserItemRepository userItemRepository;
+  @Autowired private ItemNoteRepository itemNoteRepository;
   @Autowired private ItemPropertyRepository itemPropertyRepository;
   @Autowired private ItemSourceRepository itemSourceRepository;
   @Autowired private ItemRepository itemRepository;
@@ -50,6 +54,7 @@ class CrudIntegrationTests {
   @BeforeEach
   void cleanDatabase() {
     userItemRepository.deleteAll();
+    itemNoteRepository.deleteAll();
     itemPropertyRepository.deleteAll();
     itemSourceRepository.deleteAll();
     itemRepository.deleteAll();
@@ -225,6 +230,41 @@ class CrudIntegrationTests {
 
     mockMvc.perform(delete("/api/user-items/{id}", userItemId)).andExpect(status().isNoContent());
     mockMvc.perform(delete("/api/users/{id}", userId)).andExpect(status().isNoContent());
+  }
+
+  @Test
+  void itemNotesFlow() throws Exception {
+    Long itemId = createItem("Griffon's Eye");
+
+    ItemNoteRequest noteRequest = new ItemNoteRequest();
+    noteRequest.setAuthorName("Deckard Cain");
+    noteRequest.setBody("Stay awhile and listen.");
+
+    MvcResult createNoteResult =
+        mockMvc
+            .perform(
+                post("/api/items/{itemId}/notes", itemId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(noteRequest)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.itemId").value(itemId))
+            .andExpect(jsonPath("$.authorName").value("Deckard Cain"))
+            .andExpect(jsonPath("$.body").value("Stay awhile and listen."))
+            .andReturn();
+
+    Map<?, ?> note =
+        objectMapper.readValue(createNoteResult.getResponse().getContentAsString(), Map.class);
+    Long noteId = ((Number) note.get("id")).longValue();
+
+    mockMvc
+        .perform(get("/api/items/{itemId}/notes", itemId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id").value(noteId));
+
+    mockMvc
+        .perform(get("/api/items/{id}/details", itemId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.notes[0].body").value("Stay awhile and listen."));
   }
 
   private Long createItem(String name) throws Exception {

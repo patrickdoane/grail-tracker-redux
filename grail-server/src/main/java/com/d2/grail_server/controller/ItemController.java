@@ -1,5 +1,6 @@
 package com.d2.grail_server.controller;
 
+import com.d2.grail_server.dto.ItemDetailResponse;
 import com.d2.grail_server.dto.ItemRequest;
 import com.d2.grail_server.dto.ItemResponse;
 import com.d2.grail_server.service.ItemService;
@@ -34,6 +35,11 @@ public class ItemController {
   @GetMapping("/{id}")
   public ItemResponse getItem(@PathVariable Long id) {
     return itemService.getItem(id);
+  }
+
+  @GetMapping("/{id}/details")
+  public ItemDetailResponse getItemDetail(@PathVariable Long id) {
+    return itemService.getItemDetail(id);
   }
 
   @PostMapping

@@ -87,4 +87,56 @@ class ItemServiceTests {
     assertEquals("Socketed (2)", variant.getDescription());
     assertEquals(Collections.singletonList("Enhanced Damage"), variant.getAttributes());
   }
+
+  @Test
+  void getItemDetailGroupsMultipleVariantLabels() {
+    Item item = new Item();
+    item.setId(3L);
+    item.setName("Ancient Relic");
+    item.setDescription("Fallback text should be ignored when variants exist.");
+
+    ItemProperty ladderDescription = new ItemProperty();
+    ladderDescription.setItem(item);
+    ladderDescription.setPropertyName("Variant: Ladder");
+    ladderDescription.setPropertyValue("Ladder-only bonus");
+
+    ItemProperty ladderAttribute = new ItemProperty();
+    ladderAttribute.setItem(item);
+    ladderAttribute.setPropertyName("Variant: Ladder");
+    ladderAttribute.setPropertyValue("+1 to Skills");
+
+    ItemProperty hardcoreDescription = new ItemProperty();
+    hardcoreDescription.setItem(item);
+    hardcoreDescription.setPropertyName("Variant: Hardcore");
+    hardcoreDescription.setPropertyValue("Cannot die");
+
+    ItemProperty hardcoreAttribute = new ItemProperty();
+    hardcoreAttribute.setItem(item);
+    hardcoreAttribute.setPropertyName("Variant: Hardcore");
+    hardcoreAttribute.setPropertyValue("Extra Life");
+
+    when(itemRepository.findById(eq(3L))).thenReturn(Optional.of(item));
+    when(itemPropertyRepository.findByItemId(eq(3L)))
+        .thenReturn(
+            Arrays.asList(
+                ladderDescription, ladderAttribute, hardcoreDescription, hardcoreAttribute));
+    when(itemSourceRepository.findByItemId(eq(3L))).thenReturn(Collections.emptyList());
+    when(itemNoteRepository.findByItemIdOrderByCreatedAtDesc(eq(3L)))
+        .thenReturn(Collections.emptyList());
+
+    ItemDetailResponse detail = itemService.getItemDetail(3L);
+
+    assertEquals(2, detail.getVariants().size());
+
+    ItemVariantResponse ladderVariant = detail.getVariants().get(0);
+    ItemVariantResponse hardcoreVariant = detail.getVariants().get(1);
+
+    assertEquals("Ladder", ladderVariant.getLabel());
+    assertEquals("Ladder-only bonus", ladderVariant.getDescription());
+    assertEquals(Collections.singletonList("+1 to Skills"), ladderVariant.getAttributes());
+
+    assertEquals("Hardcore", hardcoreVariant.getLabel());
+    assertEquals("Cannot die", hardcoreVariant.getDescription());
+    assertEquals(Collections.singletonList("Extra Life"), hardcoreVariant.getAttributes());
+  }
 }

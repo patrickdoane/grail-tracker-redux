@@ -295,13 +295,8 @@ function ItemDetailPanel({
         return
       }
       window.requestAnimationFrame(() => {
-        if (typeof document === 'undefined') {
-          return
-        }
-        const target = document.getElementById(`item-detail-section-${sectionId}`)
-        if (target) {
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }
+        const target = getSectionAnchor(sectionId)
+        target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       })
     },
     [handleSelectSection],
@@ -413,7 +408,7 @@ function ItemDetailPanel({
               key={section.id}
               role="tabpanel"
               hidden={activeSection !== section.id}
-              id={`item-detail-section-${section.id}`}
+              id={`item-detail-section-${section.id}-tab`}
               className="item-detail__panel"
             >
               {renderSectionContent({
@@ -441,7 +436,7 @@ function ItemDetailPanel({
                 key={section.id}
                 open={isOpen}
                 onToggle={(event) => handleAccordionToggle(section.id, event.currentTarget.open)}
-                id={`item-detail-section-${section.id}`}
+                id={`item-detail-section-${section.id}-accordion`}
               >
                 <summary>{section.label}</summary>
                 <div className="item-detail__panel">
@@ -862,6 +857,31 @@ function deriveHeroArt(item: Item, properties: ItemProperty[], fallbackInitial: 
     type: 'initial',
     value: safeInitial,
   }
+}
+
+function getSectionAnchor(sectionId: SectionId): HTMLElement | null {
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  const prefersAccordion =
+    typeof window !== 'undefined' &&
+    'matchMedia' in window &&
+    window.matchMedia('(max-width: 768px)').matches
+
+  if (prefersAccordion) {
+    const accordionAnchor = document.getElementById(`item-detail-section-${sectionId}-accordion`)
+    if (accordionAnchor) {
+      return accordionAnchor
+    }
+  }
+
+  const tabAnchor = document.getElementById(`item-detail-section-${sectionId}-tab`)
+  if (tabAnchor) {
+    return tabAnchor
+  }
+
+  return document.getElementById(`item-detail-section-${sectionId}-accordion`)
 }
 
 function createVariantKey(label: string, index: number): string {

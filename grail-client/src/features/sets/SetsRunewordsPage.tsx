@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Button,
   Card,
@@ -11,6 +12,7 @@ import {
   Grid,
   Stack,
   StatusBadge,
+  FilterChip,
 } from '../../components/ui'
 import { getApiErrorMessage } from '../../lib/apiClient'
 import { classNames } from '../../lib/classNames'
@@ -54,10 +56,15 @@ const getUnitCopy = (collection: CollectionSummary) => {
 }
 
 function SetsRunewordsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const collectionsQuery = useCollectionsQuery()
   const data = collectionsQuery.data
   const setCollections = useMemo(() => data?.sets ?? [], [data?.sets])
   const runewordCollections = useMemo(() => data?.runewords ?? [], [data?.runewords])
+
+  const viewParam = searchParams.get('view')
+  const activeView: 'all' | 'set' | 'runeword' =
+    viewParam === 'set' || viewParam === 'runeword' ? viewParam : 'all'
 
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null)
 
@@ -76,6 +83,18 @@ function SetsRunewordsPage() {
 
   const closeChecklist = () => {
     setSelectedCollectionId(null)
+  }
+
+  const updateView = (next: 'all' | 'set' | 'runeword') => {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev)
+      if (next === 'all') {
+        params.delete('view')
+      } else {
+        params.set('view', next)
+      }
+      return params
+    })
   }
 
   const renderCollectionCard = (collection: CollectionSummary) => {
@@ -162,9 +181,25 @@ function SetsRunewordsPage() {
           Track your multi-piece grinds in one place. Each card highlights progress, remaining pieces, and jump-off
           checklists so you can plan your next farming session.
         </p>
+        <Stack direction="horizontal" gap="xs" className="sets-page__view-toggle" wrap>
+          <FilterChip selected={activeView === 'all'} onClick={() => updateView('all')}>
+            All
+          </FilterChip>
+          <FilterChip selected={activeView === 'set'} onClick={() => updateView('set')}>
+            Sets
+          </FilterChip>
+          <FilterChip selected={activeView === 'runeword'} onClick={() => updateView('runeword')}>
+            Runewords
+          </FilterChip>
+        </Stack>
       </header>
 
-      {SECTIONS.map((section) => (
+      {SECTIONS.filter((section) => {
+        if (activeView === 'all') {
+          return true
+        }
+        return section.type === activeView
+      }).map((section) => (
         <section key={section.type} className="sets-section">
           <div className="sets-section__header">
             <h2>{section.title}</h2>
@@ -257,6 +292,22 @@ function CollectionChecklist({ collection, onClose }: CollectionChecklistProps) 
             </li>
           ))}
         </ul>
+
+        <section className="collection-checklist__notes" aria-labelledby="collection-notes-title">
+          <div className="collection-checklist__notes-header">
+            <h3 id="collection-notes-title">Trading collaboration notes</h3>
+            <p>
+              Jot down socket donors, crafting priorities, or trade offers to share with your fireteam. Real-time sync
+              will land in a future drop—save drafts locally for now.
+            </p>
+          </div>
+          <textarea
+            className="collection-checklist__notes-field"
+            placeholder="Hit the ground running with a farming plan, rune wish list, or trading notes."
+            rows={4}
+          />
+          <span className="collection-checklist__notes-footer">Cloud collaboration coming soon.</span>
+        </section>
 
         <footer className="collection-checklist__footer">
           <Button variant="primary" onClick={onClose}>

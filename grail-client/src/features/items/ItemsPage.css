@@ -147,23 +147,15 @@
   font-size: var(--font-size-sm);
 }
 
-.items-page__item-details {
-  padding: var(--space-md) var(--space-lg) var(--space-lg);
-  border-top: 1px solid var(--border-subtle);
-  background: rgba(15, 23, 42, 0.4);
-}
-
-.items-page__more-info {
-  margin: 0 0 var(--space-sm);
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-}
-
 .items-page__fab {
   position: fixed;
   bottom: var(--space-xl);
   right: var(--space-xl);
   z-index: 20;
+}
+
+.items-page__detail-panel {
+  margin-top: var(--space-xl);
 }
 
 .visually-hidden {

@@ -21,6 +21,7 @@ import { classNames } from '../../lib/classNames'
 import { getApiErrorMessage } from '../../lib/apiClient'
 import { useItemsQuery } from './useItemsQuery'
 import type { Item } from './itemsApi'
+import ItemDetailPanel from './ItemDetailPanel'
 import './ItemsPage.css'
 
 const CATALOGUE_ESTIMATE = 500
@@ -54,7 +55,7 @@ function ItemsPage() {
   const [foundItemIds, setFoundItemIds] = useState<Set<number>>(() => new Set())
 
   const itemsQuery = useItemsQuery()
-  const items: Item[] = itemsQuery.data ?? []
+  const items = useMemo<Item[]>(() => itemsQuery.data ?? [], [itemsQuery.data])
 
   const rarityOptions = useMemo(() => {
     const values = new Set<string>()
@@ -172,6 +173,11 @@ function ItemsPage() {
   })
 
   const pendingItemId = logFindMutation.variables?.itemId
+  const selectedItem = selectedItemId ? items.find((item) => item.id === selectedItemId) ?? null : null
+  const selectedItemIsFound = selectedItem ? foundItemIds.has(selectedItem.id) : false
+  const selectedItemIsRuneword = selectedItem ? isRuneword(selectedItem) : false
+  const selectedItemIsMutating =
+    Boolean(selectedItem) && logFindMutation.isPending && pendingItemId === selectedItem?.id
 
   const statusText = (() => {
     if (itemsQuery.status === 'pending') {
@@ -444,31 +450,29 @@ function ItemsPage() {
                         {isFound ? 'Mark as missing' : 'Log find'}
                       </Button>
                       <Button variant="ghost" onClick={() => toggleSelectedItem(item.id)}>
-                        {isSelected ? 'Hide details' : 'View details'}
+                        {isSelected ? 'Close details' : 'View details'}
                       </Button>
                     </Stack>
                   </CardFooter>
-                  {isSelected && (
-                    <div className="items-page__item-details">
-                      <p className="items-page__more-info">
-                        Track your progress and add personal notes once the item detail view is available.
-                      </p>
-                      <Stack direction="horizontal" gap="sm" wrap>
-                        <StatusBadge variant="info" subtle>
-                          ID #{item.id}
-                        </StatusBadge>
-                        {isRuneword(item) && (
-                          <StatusBadge variant="warning" subtle>
-                            Runeword-compatible
-                          </StatusBadge>
-                        )}
-                      </Stack>
-                    </div>
-                  )}
                 </Card>
               )
             })}
           </Grid>
+        )}
+
+        {selectedItem && (
+          <div className="items-page__detail-panel">
+            <ItemDetailPanel
+              item={selectedItem}
+              isFound={selectedItemIsFound}
+              isMutating={selectedItemIsMutating}
+              onToggleFound={() =>
+                logFindMutation.mutate({ itemId: selectedItem.id, found: !selectedItemIsFound })
+              }
+              onClose={() => setSelectedItemId(null)}
+              isRuneword={selectedItemIsRuneword}
+            />
+          </div>
         )}
       </Stack>
 

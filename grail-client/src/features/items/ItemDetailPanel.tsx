@@ -499,10 +499,18 @@ function renderSectionContent({
   const isLoading = status === 'pending'
   const isError = status === 'error'
   const errorMessage = isError ? getApiErrorMessage(error) : null
+  const isRunewordItem = item.quality?.toLowerCase() === 'runeword'
+  const runewordMeta = isRunewordItem ? buildRunewordMeta(item, properties) : null
+  const displayProperties = isRunewordItem
+    ? properties.filter((property) => {
+        const name = property.propertyName?.toLowerCase()
+        return name !== 'runeword details' && name !== 'runeword bases'
+      })
+    : properties
 
   switch (sectionId) {
     case 'overview': {
-      const noProperties = properties.length === 0
+      const noProperties = displayProperties.length === 0
 
       return (
         <div className="item-detail__overview">
@@ -525,13 +533,15 @@ function renderSectionContent({
                 <dd>{item.d2Version}</dd>
               </div>
             )}
-            {properties.map((property) => (
+            {displayProperties.map((property) => (
               <div key={property.id}>
                 <dt>{property.propertyName}</dt>
                 <dd>{property.propertyValue}</dd>
               </div>
             ))}
           </dl>
+
+          {runewordMeta && <RunewordRecipe meta={runewordMeta} />}
 
           {isLoading && noProperties && (
             <p className="item-detail__state">Loading item overview…</p>
@@ -541,7 +551,9 @@ function renderSectionContent({
           )}
 
           <p className="item-detail__description">
-            {item.description || 'Lore and flavor text will surface here as the database expands.'}
+            {runewordMeta
+              ? buildRunewordSummary(runewordMeta)
+              : item.description || 'Lore and flavor text will surface here as the database expands.'}
           </p>
         </div>
       )
@@ -781,6 +793,137 @@ function renderVariantDetail(variant: VariantEntry) {
         </ul>
       )}
     </div>
+  )
+}
+
+type RunewordMeta = {
+  runes: string[]
+  sockets?: string
+  highestRune?: string
+  ladder?: string
+  bases?: string
+}
+
+function buildRunewordMeta(item: Item, properties: ItemProperty[]): RunewordMeta | null {
+  const baseProperty = properties.find(
+    (property) => property.propertyName?.toLowerCase() === 'runeword bases',
+  )
+  const detailsProperty = properties.find(
+    (property) => property.propertyName?.toLowerCase() === 'runeword details',
+  )
+
+  const detailSource = (item.description || detailsProperty?.propertyValue || '').trim()
+  const detailMap: Record<string, string> = {}
+
+  if (detailSource) {
+    detailSource.split('|').forEach((segment) => {
+      const [rawKey, ...rest] = segment.split(':')
+      const key = rawKey?.trim().toLowerCase()
+      const value = rest.join(':').trim()
+      if (key) {
+        detailMap[key] = value
+      }
+    })
+  }
+
+  const runesRaw = detailMap['runes'] || ''
+  const runes = runesRaw
+    .split('+')
+    .map((token) => token.trim())
+    .filter(Boolean)
+
+  const sockets = normalizeSockets(detailMap['sockets'])
+  const highestRune = detailMap['highest rune'] || detailMap['highest'] || undefined
+  const ladder = detailMap['ladder'] || undefined
+  const bases = baseProperty?.propertyValue?.trim() || item.type || undefined
+
+  if (runes.length === 0 && !sockets && !highestRune && !ladder && !bases) {
+    return null
+  }
+
+  return {
+    runes,
+    sockets,
+    highestRune,
+    ladder,
+    bases,
+  }
+}
+
+function normalizeSockets(raw?: string): string | undefined {
+  if (!raw) {
+    return undefined
+  }
+  const trimmed = raw.trim()
+  if (!trimmed) {
+    return undefined
+  }
+  if (/^\d+$/.test(trimmed)) {
+    return `${trimmed} socket${trimmed === '1' ? '' : 's'}`
+  }
+  return trimmed
+}
+
+function buildRunewordSummary(meta: RunewordMeta): string {
+  const baseText = meta.bases
+    ? `Socket the listed runes into ${meta.bases}.`
+    : 'Socket the listed runes into the required base.'
+  const details: string[] = []
+  if (meta.sockets) {
+    details.push(`Requires ${meta.sockets}`)
+  }
+  if (meta.highestRune) {
+    details.push(`Highest rune needed: ${meta.highestRune}`)
+  }
+  if (meta.ladder) {
+    details.push(meta.ladder)
+  }
+  if (details.length === 0) {
+    return baseText
+  }
+  return `${baseText} ${details.join(' • ')}`
+}
+
+function RunewordRecipe({ meta }: { meta: RunewordMeta }) {
+  return (
+    <section className="item-detail__runeword" aria-labelledby="item-runeword-heading">
+      <h3 id="item-runeword-heading">Runeword recipe</h3>
+      {meta.runes.length > 0 && (
+        <div className="item-detail__runeword-runes" role="list">
+          {meta.runes.map((rune, index) => (
+            <span key={`${rune}-${index}`} className="item-detail__rune-chip" role="listitem">
+              {rune}
+            </span>
+          ))}
+        </div>
+      )}
+      <dl className="item-detail__runeword-meta">
+        {meta.bases && (
+          <div>
+            <dt>Eligible bases</dt>
+            <dd>{meta.bases}</dd>
+          </div>
+        )}
+        {meta.sockets && (
+          <div>
+            <dt>Sockets required</dt>
+            <dd>{meta.sockets}</dd>
+          </div>
+        )}
+        {meta.highestRune && (
+          <div>
+            <dt>Highest rune</dt>
+            <dd>{meta.highestRune}</dd>
+          </div>
+        )}
+        {meta.ladder && (
+          <div>
+            <dt>Ladder status</dt>
+            <dd>{meta.ladder}</dd>
+          </div>
+        )}
+      </dl>
+    </section>
   )
 }
 

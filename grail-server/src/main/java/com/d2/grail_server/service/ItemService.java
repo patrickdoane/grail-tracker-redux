@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @Transactional
@@ -180,7 +181,7 @@ public class ItemService {
     List<ItemVariantResponse> variants =
         groupedVariants.values().stream().map(VariantAccumulator::toResponse).collect(Collectors.toList());
 
-    if (variants.isEmpty() && item.getDescription() != null && !item.getDescription().isBlank()) {
+    if (variants.isEmpty() && StringUtils.hasText(item.getDescription())) {
       VariantAccumulator fallback = new VariantAccumulator(item.getName());
       fallback.setDescription(item.getDescription());
       variants.add(fallback.toResponse());
@@ -215,7 +216,7 @@ public class ItemService {
     }
 
     void addAttribute(String value) {
-      if (value == null || value.isBlank()) {
+      if (!StringUtils.hasText(value)) {
         return;
       }
       if (description == null) {

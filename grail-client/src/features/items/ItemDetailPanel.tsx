@@ -8,14 +8,7 @@ import {
   type FormEvent,
 } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  Button,
-  Card,
-  CardContent,
-  Stack,
-  StatusBadge,
-  type StatusBadgeVariant,
-} from '../../components/ui'
+import { Button, Card, CardContent, Stack, StatusBadge } from '../../components/ui'
 import { classNames } from '../../lib/classNames'
 import { getApiErrorMessage } from '../../lib/apiClient'
 import { useItemDetailQuery } from './useItemDetails'
@@ -46,6 +39,17 @@ type VariantUiState = {
   onSelect: (key: string) => void
   onToggle: (key: string, open: boolean) => void
 }
+
+type HeroArt =
+  | {
+      type: 'image'
+      src: string
+      alt: string
+    }
+  | {
+      type: 'initial'
+      value: string
+    }
 
 type NoteFormRenderProps = {
   authorName: string
@@ -242,6 +246,13 @@ function ItemDetailPanel({
   const accentColor = useMemo(() => getAccentColor(detailItem), [detailItem])
   const heroInitial = useMemo(() => detailItem.name.charAt(0).toUpperCase(), [detailItem.name])
 
+  const heroArt = useMemo(
+    () => deriveHeroArt(detailItem, properties, heroInitial),
+    [detailItem, heroInitial, properties],
+  )
+
+  const heroArtLabel = heroArt.type === 'image' ? undefined : `${detailItem.name} emblem`
+
   const heroMeta = useMemo(() => {
     const parts = [detailItem.type, detailItem.quality, detailItem.d2Version].filter(Boolean)
     return parts.join(' • ')
@@ -254,16 +265,16 @@ function ItemDetailPanel({
     return preferred?.sourceName ?? null
   }, [sources])
 
-  const handleSelectSection = (sectionId: SectionId) => {
+  const handleSelectSection = useCallback((sectionId: SectionId) => {
     setActiveSection(sectionId)
     setExpandedSections((current) => {
       const next = new Set(current)
       next.add(sectionId)
       return next
     })
-  }
+  }, [])
 
-  const handleAccordionToggle = (sectionId: SectionId, open: boolean) => {
+  const handleAccordionToggle = useCallback((sectionId: SectionId, open: boolean) => {
     setExpandedSections((current) => {
       const next = new Set(current)
       if (open) {
@@ -273,25 +284,55 @@ function ItemDetailPanel({
       }
       return next
     })
-  }
+  }, [])
 
   const heroStyles = { '--item-detail-accent': accentColor } as CSSProperties
+
+  const handleJumpToSection = useCallback(
+    (sectionId: SectionId) => {
+      handleSelectSection(sectionId)
+      if (typeof window === 'undefined') {
+        return
+      }
+      window.requestAnimationFrame(() => {
+        if (typeof document === 'undefined') {
+          return
+        }
+        const target = document.getElementById(`item-detail-section-${sectionId}`)
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      })
+    },
+    [handleSelectSection],
+  )
 
   return (
     <Card className="item-detail" style={heroStyles}>
       <div className="item-detail__hero">
-        <div className="item-detail__art" aria-hidden="true">
-          <span>{heroInitial}</span>
+        <div className="item-detail__art-shell">
+          {detailItem.rarity && (
+            <span className="item-detail__rarity-ribbon">{detailItem.rarity}</span>
+          )}
+          <div
+            className={classNames(
+              'item-detail__art',
+              heroArt.type === 'image' && 'item-detail__art--image',
+            )}
+            role="img"
+            aria-label={heroArtLabel}
+          >
+            {heroArt.type === 'image' ? (
+              <img src={heroArt.src} alt={heroArt.alt} />
+            ) : (
+              <span aria-hidden="true">{heroArt.value}</span>
+            )}
+          </div>
         </div>
         <div className="item-detail__hero-body">
           <Stack gap="xs">
             <div className="item-detail__hero-top">
               <Stack direction="horizontal" gap="xs" align="center" wrap>
-                {detailItem.rarity && (
-                  <StatusBadge variant={getRarityVariant(detailItem.rarity)}>
-                    {detailItem.rarity}
-                  </StatusBadge>
-                )}
                 {setName && (
                   <StatusBadge variant="info" subtle>
                     Part of {setName}
@@ -312,20 +353,37 @@ function ItemDetailPanel({
               <h2 className="item-detail__title">{detailItem.name}</h2>
               {heroMeta && <p className="item-detail__meta">{heroMeta}</p>}
             </div>
-            <Stack direction="horizontal" gap="sm" wrap className="item-detail__actions">
-              <Button variant={isFound ? 'surface' : 'primary'} loading={isMutating} onClick={onToggleFound}>
-                {isFound ? 'Mark as missing' : 'Log find'}
-              </Button>
-              {wikiUrl && (
+            <div className="item-detail__actions">
+              <Stack direction="horizontal" gap="sm" wrap>
                 <Button
-                  variant="secondary"
-                  onClick={() => handleOpenWiki(wikiUrl, detailItem.id)}
-                  trailingIcon={<ExternalLinkIcon />}
+                  variant={isFound ? 'surface' : 'primary'}
+                  loading={isMutating}
+                  onClick={onToggleFound}
                 >
-                  Open wiki
+                  {isFound ? 'Mark as missing' : 'Log find'}
                 </Button>
-              )}
-            </Stack>
+                {wikiUrl && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => handleOpenWiki(wikiUrl, detailItem.id)}
+                    trailingIcon={<ExternalLinkIcon />}
+                  >
+                    Open wiki
+                  </Button>
+                )}
+              </Stack>
+              <Stack direction="horizontal" gap="xs" wrap className="item-detail__quick-actions">
+                <Button variant="ghost" size="sm" onClick={() => handleJumpToSection('overview')}>
+                  Item overview
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => handleJumpToSection('variants')}>
+                  View variants
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => handleJumpToSection('notes')}>
+                  Add note
+                </Button>
+              </Stack>
+            </div>
           </Stack>
         </div>
       </div>
@@ -355,6 +413,7 @@ function ItemDetailPanel({
               key={section.id}
               role="tabpanel"
               hidden={activeSection !== section.id}
+              id={`item-detail-section-${section.id}`}
               className="item-detail__panel"
             >
               {renderSectionContent({
@@ -382,6 +441,7 @@ function ItemDetailPanel({
                 key={section.id}
                 open={isOpen}
                 onToggle={(event) => handleAccordionToggle(section.id, event.currentTarget.open)}
+                id={`item-detail-section-${section.id}`}
               >
                 <summary>{section.label}</summary>
                 <div className="item-detail__panel">
@@ -728,22 +788,6 @@ function renderVariantDetail(variant: VariantEntry) {
   )
 }
 
-function getRarityVariant(rarity: string): StatusBadgeVariant {
-  switch (rarity.toLowerCase()) {
-    case 'set':
-      return 'success'
-    case 'unique':
-      return 'warning'
-    case 'runeword':
-      return 'info'
-    case 'quest':
-    case 'uber':
-      return 'danger'
-    default:
-      return 'neutral'
-  }
-}
-
 function getAccentColor(item: Item): string {
   const rarity = item.rarity?.toLowerCase()
   switch (rarity) {
@@ -791,6 +835,33 @@ function trackAnalyticsEvent(name: string, payload: Record<string, unknown>) {
   const timestamp = new Date().toISOString()
   // Centralize analytics logging for now; plug in real tracking later.
   console.info(`[analytics] ${name}`, { timestamp, ...payload })
+}
+
+function deriveHeroArt(item: Item, properties: ItemProperty[], fallbackInitial: string): HeroArt {
+  const artCandidate = properties.find((property) => {
+    const name = property.propertyName?.toLowerCase()
+    if (!name) {
+      return false
+    }
+    return ['icon', 'art', 'image', 'sprite'].some((keyword) => name.includes(keyword))
+  })
+
+  const rawValue = artCandidate?.propertyValue?.trim()
+
+  if (rawValue && /^https?:\/\//i.test(rawValue)) {
+    return {
+      type: 'image',
+      src: rawValue,
+      alt: `${item.name} artwork`,
+    }
+  }
+
+  const safeInitial = fallbackInitial || item.name.charAt(0).toUpperCase()
+
+  return {
+    type: 'initial',
+    value: safeInitial,
+  }
 }
 
 function createVariantKey(label: string, index: number): string {

@@ -55,7 +55,8 @@ public class ItemService {
     Item item =
         itemRepository
             .findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException(String.format("Item %d not found", id)));
+            .orElseThrow(
+                () -> new ResourceNotFoundException(String.format("Item %d not found", id)));
     return toResponse(item);
   }
 
@@ -64,7 +65,8 @@ public class ItemService {
     Item item =
         itemRepository
             .findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException(String.format("Item %d not found", id)));
+            .orElseThrow(
+                () -> new ResourceNotFoundException(String.format("Item %d not found", id)));
 
     List<ItemProperty> properties = itemPropertyRepository.findByItemId(id);
     List<ItemSource> sources = itemSourceRepository.findByItemId(id);
@@ -93,7 +95,8 @@ public class ItemService {
     Item item =
         itemRepository
             .findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException(String.format("Item %d not found", id)));
+            .orElseThrow(
+                () -> new ResourceNotFoundException(String.format("Item %d not found", id)));
     applyRequest(item, request);
     Item saved = itemRepository.save(item);
     return toResponse(saved);
@@ -179,7 +182,9 @@ public class ItemService {
                     java.util.LinkedHashMap::new));
 
     List<ItemVariantResponse> variants =
-        groupedVariants.values().stream().map(VariantAccumulator::toResponse).collect(Collectors.toList());
+        groupedVariants.values().stream()
+            .map(VariantAccumulator::toResponse)
+            .collect(Collectors.toList());
 
     if (variants.isEmpty() && StringUtils.hasText(item.getDescription())) {
       VariantAccumulator fallback = new VariantAccumulator(item.getName());

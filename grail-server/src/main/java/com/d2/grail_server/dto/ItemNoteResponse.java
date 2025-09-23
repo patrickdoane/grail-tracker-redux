@@ -11,7 +11,8 @@ public class ItemNoteResponse {
 
   public ItemNoteResponse() {}
 
-  public ItemNoteResponse(Long id, Long itemId, String authorName, LocalDateTime createdAt, String body) {
+  public ItemNoteResponse(
+      Long id, Long itemId, String authorName, LocalDateTime createdAt, String body) {
     this.id = id;
     this.itemId = itemId;
     this.authorName = authorName;

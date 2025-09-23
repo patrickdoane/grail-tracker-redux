@@ -85,19 +85,22 @@ public class UserItemService {
   private UserItem findUserItem(Long id) {
     return userItemRepository
         .findById(id)
-        .orElseThrow(() -> new ResourceNotFoundException(String.format("User item %d not found", id)));
+        .orElseThrow(
+            () -> new ResourceNotFoundException(String.format("User item %d not found", id)));
   }
 
   private User findUser(Long userId) {
     return userRepository
         .findById(userId)
-        .orElseThrow(() -> new ResourceNotFoundException(String.format("User %d not found", userId)));
+        .orElseThrow(
+            () -> new ResourceNotFoundException(String.format("User %d not found", userId)));
   }
 
   private Item findItem(Long itemId) {
     return itemRepository
         .findById(itemId)
-        .orElseThrow(() -> new ResourceNotFoundException(String.format("Item %d not found", itemId)));
+        .orElseThrow(
+            () -> new ResourceNotFoundException(String.format("Item %d not found", itemId)));
   }
 
   private void applyRequest(UserItem userItem, UserItemRequest request, User user, Item item) {

@@ -9,7 +9,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.d2.grail_server.dto.ItemNoteRequest;
-import com.d2.grail_server.dto.ItemNoteRequest;
 import com.d2.grail_server.dto.ItemPropertyRequest;
 import com.d2.grail_server.dto.ItemRequest;
 import com.d2.grail_server.dto.ItemResponse;

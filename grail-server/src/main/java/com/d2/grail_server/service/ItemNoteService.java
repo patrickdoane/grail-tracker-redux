@@ -36,7 +36,8 @@ public class ItemNoteService {
     Item item =
         itemRepository
             .findById(itemId)
-            .orElseThrow(() -> new ResourceNotFoundException(String.format("Item %d not found", itemId)));
+            .orElseThrow(
+                () -> new ResourceNotFoundException(String.format("Item %d not found", itemId)));
 
     ItemNote note = new ItemNote();
     note.setItem(item);
@@ -50,6 +51,10 @@ public class ItemNoteService {
 
   private ItemNoteResponse toResponse(ItemNote note) {
     return new ItemNoteResponse(
-        note.getId(), note.getItem().getId(), note.getAuthorName(), note.getCreatedAt(), note.getBody());
+        note.getId(),
+        note.getItem().getId(),
+        note.getAuthorName(),
+        note.getCreatedAt(),
+        note.getBody());
   }
 }

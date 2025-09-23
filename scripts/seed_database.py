@@ -90,7 +90,9 @@ def parse_env_file(env_path: Path) -> Dict[str, str]:
     return data
 
 
-def build_connection_args(args: argparse.Namespace, env: Dict[str, str]) -> Dict[str, str]:
+def build_connection_args(
+    args: argparse.Namespace, env: Dict[str, str]
+) -> Dict[str, str]:
     """Collect connection parameters from CLI flags or env properties."""
 
     conn: Dict[str, str] = {}
@@ -107,7 +109,9 @@ def build_connection_args(args: argparse.Namespace, env: Dict[str, str]) -> Dict
     return conn
 
 
-def seed_database(csv_path: Path, conn_args: Dict[str, str], dry_run: bool = False) -> int:
+def seed_database(
+    csv_path: Path, conn_args: Dict[str, str], dry_run: bool = False
+) -> int:
     """Load the CSV into Postgres and return the number of items inserted."""
 
     if not csv_path.exists():
@@ -156,7 +160,9 @@ def seed_database(csv_path: Path, conn_args: Dict[str, str], dry_run: bool = Fal
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Seed the grail database from CSV data.")
+    parser = argparse.ArgumentParser(
+        description="Seed the grail database from CSV data."
+    )
     parser.add_argument(
         "--csv",
         type=Path,
@@ -169,17 +175,22 @@ def main(argv: list[str] | None = None) -> int:
         default=Path("grail-server/env.properties"),
         help="Path to the env.properties file with DB credentials.",
     )
-    parser.add_argument("--host", default="localhost", help="Database host (default: %(default)s)")
+    parser.add_argument(
+        "--host", default="localhost", help="Database host (default: %(default)s)"
+    )
     parser.add_argument(
         "--port",
         type=int,
         default=5432,
         help="Database port (default: %(default)s)",
     )
-    parser.add_argument("--database", help="Override database name (defaults to env file)")
+    parser.add_argument(
+        "--database", help="Override database name (defaults to env file)"
+    )
     parser.add_argument("--user", help="Override database user (defaults to env file)")
     parser.add_argument(
-        "--password", help="Override database password (defaults to env file)")
+        "--password", help="Override database password (defaults to env file)"
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",

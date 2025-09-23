@@ -17,7 +17,15 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, Iterable, Tuple
 
-KEY_FIELDS = ("name", "category", "subcategory", "set_name", "tier", "variant", "source_url")
+KEY_FIELDS = (
+    "name",
+    "category",
+    "subcategory",
+    "set_name",
+    "tier",
+    "variant",
+    "source_url",
+)
 
 
 def load_items(path: Path) -> list[Dict[str, Any]]:
@@ -43,7 +51,9 @@ def index_by_name(items: Iterable[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
     return idx
 
 
-def compare(current: Dict[str, Dict[str, Any]], reference: Dict[str, Dict[str, Any]]) -> Tuple[set[str], set[str], Dict[str, Dict[str, Tuple[Any, Any]]]]:
+def compare(
+    current: Dict[str, Dict[str, Any]], reference: Dict[str, Dict[str, Any]]
+) -> Tuple[set[str], set[str], Dict[str, Dict[str, Tuple[Any, Any]]]]:
     """Compare two item maps and return missing/extra/delta details."""
 
     current_names = set(current.keys())
@@ -107,18 +117,30 @@ def main() -> None:
     reference_counts = summarize_counts(reference_idx)
 
     lines = []
-    lines.append(f"Comparing {args.current} ({len(current_idx)} uniques) vs {args.reference} ({len(reference_idx)} uniques)\n")
+    lines.append(
+        f"Comparing {args.current} ({len(current_idx)} uniques) vs {args.reference} ({len(reference_idx)} uniques)\n"
+    )
     lines.append("Category counts:")
     for cat in sorted(set(current_counts) | set(reference_counts)):
-        lines.append(f"  {cat}: current={current_counts.get(cat, 0)}, reference={reference_counts.get(cat, 0)}")
+        lines.append(
+            f"  {cat}: current={current_counts.get(cat, 0)}, reference={reference_counts.get(cat, 0)}"
+        )
     lines.append("")
-    lines.append(format_section("Missing items", (reference_idx[name]["name"] for name in missing)))
-    lines.append(format_section("Extra items", (current_idx[name]["name"] for name in extra)))
+    lines.append(
+        format_section(
+            "Missing items", (reference_idx[name]["name"] for name in missing)
+        )
+    )
+    lines.append(
+        format_section("Extra items", (current_idx[name]["name"] for name in extra))
+    )
 
     if diffs:
         lines.append(f"- Differing metadata ({len(diffs)} items):")
         for name, delta in list(diffs.items())[:10]:
-            pretty = ", ".join(f"{field}={cur!r}!={ref!r}" for field, (cur, ref) in delta.items())
+            pretty = ", ".join(
+                f"{field}={cur!r}!={ref!r}" for field, (cur, ref) in delta.items()
+            )
             lines.append(f"    {reference_idx[name]['name']}: {pretty}")
         if len(diffs) > 10:
             lines.append(f"    ...and {len(diffs)-10} more")

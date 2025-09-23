@@ -45,7 +45,8 @@ public class ItemPropertyService {
         itemPropertyRepository
             .findById(id)
             .orElseThrow(
-                () -> new ResourceNotFoundException(String.format("Item property %d not found", id)));
+                () ->
+                    new ResourceNotFoundException(String.format("Item property %d not found", id)));
     return toResponse(property);
   }
 
@@ -70,7 +71,8 @@ public class ItemPropertyService {
         itemPropertyRepository
             .findById(id)
             .orElseThrow(
-                () -> new ResourceNotFoundException(String.format("Item property %d not found", id)));
+                () ->
+                    new ResourceNotFoundException(String.format("Item property %d not found", id)));
     Item item =
         itemRepository
             .findById(request.getItemId())

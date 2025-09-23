@@ -27,8 +27,8 @@ import time
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
-from urllib.parse import urljoin, urlparse
+from typing import Dict, List, Optional
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
@@ -44,8 +44,8 @@ FANDOM_API = urljoin(FANDOM_BASE, "api.php")
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) "
-                  "Chrome/122.0 Safari/537.36 D2GrailScraper/2.0",
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/122.0 Safari/537.36 D2GrailScraper/2.0",
     "Accept-Language": "en-US,en;q=0.9",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Referer": "https://www.google.com/",
@@ -58,8 +58,8 @@ PAGE_TITLES = {
     "unique_weapons_hub": "Unique_Weapons",
     "unique_rings": "List_of_Unique_Rings_(Diablo_II)",
     "unique_amulets": "List_of_Unique_Amulets_(Diablo_II)",
-    "unique_charms": "Unique_Charms",                  # includes Sunder charms (D2R)
-    "unique_jewels": "List_of_Unique_Jewels",          # Rainbow Facet page
+    "unique_charms": "Unique_Charms",  # includes Sunder charms (D2R)
+    "unique_jewels": "List_of_Unique_Jewels",  # Rainbow Facet page
 }
 
 # Optional rune list source (falls back to canonical list on any error)
@@ -67,17 +67,60 @@ RUNE_LIST_URL = "https://diablo2.diablowiki.net/Rune_list"
 
 UNIQUES_EXCLUDE_TERMS = {
     # headers / mechanics / categories that showed up in your JSON
-    "item name","required level","rarity","defense","required strength","durability",
-    "chance to block","range","ladder only",
-    "rings","amulets","jewels","helms","body armor","shields","belts","boots","gloves",
-    "axes","bows","crossbows","daggers","javelins","katars","maces","polearms","spears",
-    "staves","swords","orbs","circlets","barbarian","druid","necromancer","paladin","amazon","assassin",
+    "item name",
+    "required level",
+    "rarity",
+    "defense",
+    "required strength",
+    "durability",
+    "chance to block",
+    "range",
+    "ladder only",
+    "rings",
+    "amulets",
+    "jewels",
+    "helms",
+    "body armor",
+    "shields",
+    "belts",
+    "boots",
+    "gloves",
+    "axes",
+    "bows",
+    "crossbows",
+    "daggers",
+    "javelins",
+    "katars",
+    "maces",
+    "polearms",
+    "spears",
+    "staves",
+    "swords",
+    "orbs",
+    "circlets",
+    "barbarian",
+    "druid",
+    "necromancer",
+    "paladin",
+    "amazon",
+    "assassin",
     # random table labels that slipped in
-    "two-hand damage","two-handdamage","requireddexterity","requireddexterity","smitedamage",
-    "potion boxes","8 potion boxes","12 potion boxes","16 potion boxes",
+    "two-hand damage",
+    "two-handdamage",
+    "requireddexterity",
+    "requireddexterity",
+    "smitedamage",
+    "potion boxes",
+    "8 potion boxes",
+    "12 potion boxes",
+    "16 potion boxes",
 }
 
-RUNE_RE = re.compile(r"^(Eld|El|Tir|Nef|Eth|Ith|Tal|Ral|Ort|Thul|Amn|Sol|Shael|Dol|Hel|Io|Lum|Ko|Fal|Lem|Pul|Um|Mal|Ist|Gul|Vex|Ohm|Lo|Sur|Ber|Jah|Cham|Zod)\b", re.I)
+RUNE_RE = re.compile(
+    r"^(Eld|El|Tir|Nef|Eth|Ith|Tal|Ral|Ort|Thul|Amn|Sol|Shael|Dol|Hel|Io|Lum|Ko|Fal|Lem|Pul|Um|Mal|Ist|Gul|Vex|Ohm|Lo|Sur|Ber|Jah|Cham|Zod)\b",
+    re.I,
+)
+
 
 # ----------------------------
 # Session & Cache
@@ -97,7 +140,9 @@ def make_session() -> requests.Session:
     s.headers.update(HEADERS)
     return s
 
+
 SESSION = make_session()
+
 
 @dataclass
 class CacheConfig:
@@ -113,7 +158,9 @@ def ensure_cache_dir(path: Path):
     path.mkdir(parents=True, exist_ok=True)
 
 
-def cache_file_for_title(cache_dir: Path, page_title: str, suffix: str = ".html") -> Path:
+def cache_file_for_title(
+    cache_dir: Path, page_title: str, suffix: str = ".html"
+) -> Path:
     """Return a filesystem path for the cached representation of a page."""
 
     safe = re.sub(r"[^A-Za-z0-9_.()-]", "_", page_title)
@@ -127,6 +174,7 @@ def is_fresh(p: Path, ttl_hours: int) -> bool:
         return False
     age_sec = time.time() - p.stat().st_mtime
     return age_sec < ttl_hours * 3600
+
 
 def fandom_api_html(page_title: str, cache_cfg: CacheConfig) -> str:
     """Fetch rendered HTML for a wiki page, caching the response on disk."""
@@ -151,12 +199,14 @@ def fandom_api_html(page_title: str, cache_cfg: CacheConfig) -> str:
     cache_path.write_text(html, encoding="utf-8")
     return html
 
+
 def _jittered_sleep(base: float):
     """Pause for a jittered interval to avoid hammering the API."""
 
     if base > 0:
         # ±30% jitter to avoid repeated identical intervals
         time.sleep(base * random.uniform(0.7, 1.3))
+
 
 def fandom_api_parse_html(page_title: str, cache_cfg: CacheConfig) -> str:
     """Return rendered HTML using the MediaWiki parse endpoint."""
@@ -184,6 +234,7 @@ def fandom_api_parse_html(page_title: str, cache_cfg: CacheConfig) -> str:
     cache_path.write_text(html, encoding="utf-8")
     return html
 
+
 def fandom_api_query_wikitext(page_title: str, cache_cfg: CacheConfig) -> str:
     """Fallback path: wikitext via action=query (prop=revisions)."""
     ensure_cache_dir(cache_cfg.dir)
@@ -210,7 +261,7 @@ def fandom_api_query_wikitext(page_title: str, cache_cfg: CacheConfig) -> str:
     if not pages:
         raise RuntimeError(f"MediaWiki API returned no pages for {page_title}")
     # Any pageid key; Fandom uses numeric IDs
-    (_, page_obj), = pages.items()
+    ((_, page_obj),) = pages.items()
     revs = page_obj.get("revisions", [])
     if not revs:
         raise RuntimeError(f"No revisions/content for {page_title}")
@@ -221,6 +272,7 @@ def fandom_api_query_wikitext(page_title: str, cache_cfg: CacheConfig) -> str:
         raise RuntimeError(f"No wikitext content for {page_title}")
     cache_path.write_text(wikitext, encoding="utf-8")
     return wikitext
+
 
 def soup_from_page_title(page_title: str, cache_cfg: CacheConfig) -> BeautifulSoup:
     """Return a BeautifulSoup tree for the requested page."""
@@ -233,7 +285,10 @@ def soup_from_page_title(page_title: str, cache_cfg: CacheConfig) -> BeautifulSo
         if e.response is not None and e.response.status_code in (403, 429):
             wt = fandom_api_query_wikitext(page_title, cache_cfg)
             # Minimal conversion: wrap as pre so downstream selectors don't crash
-            return BeautifulSoup(f"<pre class='wikitext'>{BeautifulSoup(wt, 'lxml').get_text()}</pre>", "lxml")
+            return BeautifulSoup(
+                f"<pre class='wikitext'>{BeautifulSoup(wt, 'lxml').get_text()}</pre>",
+                "lxml",
+            )
         raise
 
 
@@ -241,6 +296,7 @@ def wiki_url(page_title: str) -> str:
     """Build a canonical wiki URL from a page title."""
 
     return urljoin(FANDOM_WIKI_PREFIX, page_title)
+
 
 def _header_item_col_index(table) -> int | None:
     """Return the column index that holds the item names, based on the header row."""
@@ -257,15 +313,45 @@ def _header_item_col_index(table) -> int | None:
                     return i
         # many pages name the first column by the gear type; treat that col as the name col
         for i, lab in enumerate(labels):
-            if any(word in lab for word in (
-                "ring","amulet","jewel","helm","circlet","body armor","armor","shield",
-                "belt","boots","gloves","orb","barbarian","druid","necromancer","paladin",
-                "amazon","assassin","axe","bow","crossbow","dagger","javelin","katar",
-                "mace","polearm","spear","staff","stave","sword"
-            )):
+            if any(
+                word in lab
+                for word in (
+                    "ring",
+                    "amulet",
+                    "jewel",
+                    "helm",
+                    "circlet",
+                    "body armor",
+                    "armor",
+                    "shield",
+                    "belt",
+                    "boots",
+                    "gloves",
+                    "orb",
+                    "barbarian",
+                    "druid",
+                    "necromancer",
+                    "paladin",
+                    "amazon",
+                    "assassin",
+                    "axe",
+                    "bow",
+                    "crossbow",
+                    "dagger",
+                    "javelin",
+                    "katar",
+                    "mace",
+                    "polearm",
+                    "spear",
+                    "staff",
+                    "stave",
+                    "sword",
+                )
+            ):
                 return i
         # keep checking other header rows (some tables have subtables)
     return None  # we'll fall back to col 0 later
+
 
 def _is_generic_link(a) -> bool:
     """Filter out category/mechanics links and obvious non-item cells."""
@@ -277,9 +363,13 @@ def _is_generic_link(a) -> bool:
     if any(x in href for x in ("/Category:", "Category:", "List_of_")):
         return True
     # ignore very generic mechanics pages that are never item pages
-    if any(x in href for x in ("/wiki/Defense", "/wiki/Durability", "/wiki/Range", "/wiki/Smite")):
+    if any(
+        x in href
+        for x in ("/wiki/Defense", "/wiki/Durability", "/wiki/Range", "/wiki/Smite")
+    ):
         return True
     return False
+
 
 # ----------------------------
 # Parsing helpers
@@ -290,6 +380,7 @@ def extract_title_text(a_tag) -> str:
     txt = (a_tag.get_text() or "").strip()
     txt = re.sub(r"\s+\[\d+\]$", "", txt)  # drop footnote markers
     return txt
+
 
 def infer_subcategory_from_title(soup: BeautifulSoup) -> str:
     """Infer an item subcategory from the page title when tables lack context."""
@@ -302,6 +393,7 @@ def infer_subcategory_from_title(soup: BeautifulSoup) -> str:
         if key in title:
             return key
     return title or "Unknown"
+
 
 _LINK_RE = re.compile(r"\[\[([^\]|#]+)(?:\|[^\]]+)?\]\]")
 
@@ -349,6 +441,7 @@ def _extract_base_type_from_cell(cell, unique_name: str) -> Optional[str]:
 
     return None
 
+
 def _wikitext_tables(wt: str) -> list[tuple[list[str], Optional[str]]]:
     """Split wikitext into table blocks and track the active tier heading."""
     blocks: list[tuple[list[str], Optional[str]]] = []
@@ -376,6 +469,7 @@ def _wikitext_tables(wt: str) -> list[tuple[list[str], Optional[str]]]:
                 table_tier = None
     return blocks
 
+
 def _wikitext_item_col_idx(lines: list[str]) -> int | None:
     """Find the header row ('!' cells) and locate the item-name column index."""
     for ln in lines:
@@ -387,15 +481,47 @@ def _wikitext_item_col_idx(lines: list[str]) -> int | None:
                     if lab == target:
                         return i
             for i, lab in enumerate(headers):
-                if any(w in lab for w in (
-                    "ring","amulet","jewel","helm","circlet","armor","shield","belt","boots","gloves",
-                    "axe","bow","crossbow","dagger","javelin","katar","mace","polearm","spear","staff","stave","sword",
-                    "orb","barbarian","druid","necromancer","paladin","amazon","assassin"
-                )):
+                if any(
+                    w in lab
+                    for w in (
+                        "ring",
+                        "amulet",
+                        "jewel",
+                        "helm",
+                        "circlet",
+                        "armor",
+                        "shield",
+                        "belt",
+                        "boots",
+                        "gloves",
+                        "axe",
+                        "bow",
+                        "crossbow",
+                        "dagger",
+                        "javelin",
+                        "katar",
+                        "mace",
+                        "polearm",
+                        "spear",
+                        "staff",
+                        "stave",
+                        "sword",
+                        "orb",
+                        "barbarian",
+                        "druid",
+                        "necromancer",
+                        "paladin",
+                        "amazon",
+                        "assassin",
+                    )
+                ):
                     return i
     return None
 
-def _parse_uniques_from_wikitext(wikitext: str, category_hint: Optional[str], source_url: str) -> list[dict]:
+
+def _parse_uniques_from_wikitext(
+    wikitext: str, category_hint: Optional[str], source_url: str
+) -> list[dict]:
     """Parse a wikitext table block into unique item dictionaries."""
 
     out = []
@@ -409,7 +535,11 @@ def _parse_uniques_from_wikitext(wikitext: str, category_hint: Optional[str], so
         for ln in tbl:
             if ln.startswith("|-"):
                 if row:
-                    out.extend(_emit_from_wt_row(row, name_col, category_hint, source_url, current_tier))
+                    out.extend(
+                        _emit_from_wt_row(
+                            row, name_col, category_hint, source_url, current_tier
+                        )
+                    )
                 row = []
                 continue
             stripped = ln.strip()
@@ -420,17 +550,30 @@ def _parse_uniques_from_wikitext(wikitext: str, category_hint: Optional[str], so
                 continue
             row.append(ln)
         if row:
-            out.extend(_emit_from_wt_row(row, name_col, category_hint, source_url, current_tier))
+            out.extend(
+                _emit_from_wt_row(
+                    row, name_col, category_hint, source_url, current_tier
+                )
+            )
 
     # dedup by name
-    seen = set(); dedup = []
+    seen = set()
+    dedup = []
     for it in out:
         k = it["name"].lower()
         if k not in seen:
-            seen.add(k); dedup.append(it)
+            seen.add(k)
+            dedup.append(it)
     return dedup
 
-def _emit_from_wt_row(lines: list[str], name_col: int, category_hint: Optional[str], source_url: str, tier: Optional[str]) -> list[dict]:
+
+def _emit_from_wt_row(
+    lines: list[str],
+    name_col: int,
+    category_hint: Optional[str],
+    source_url: str,
+    tier: Optional[str],
+) -> list[dict]:
     """Emit structured rows from a single wikitext table row."""
 
     # Combine, split cells on '||'
@@ -478,15 +621,20 @@ def _emit_from_wt_row(lines: list[str], name_col: int, category_hint: Optional[s
                 base_type = cleaned
                 break
 
-    return [{
-        "name": name,
-        "category": "Unique",
-        "subcategory": base_type or category_hint or "Unknown",
-        "tier": tier or "",
-        "source_url": source_url,
-    }]
+    return [
+        {
+            "name": name,
+            "category": "Unique",
+            "subcategory": base_type or category_hint or "Unknown",
+            "tier": tier or "",
+            "source_url": source_url,
+        }
+    ]
 
-def parse_unique_table_like_page(page_title: str, cache_cfg: CacheConfig, category_hint: Optional[str] = None) -> list[dict]:
+
+def parse_unique_table_like_page(
+    page_title: str, cache_cfg: CacheConfig, category_hint: Optional[str] = None
+) -> list[dict]:
     """Parse a MediaWiki table page into structured unique item rows."""
 
     soup = soup_from_page_title(page_title, cache_cfg)
@@ -495,7 +643,9 @@ def parse_unique_table_like_page(page_title: str, cache_cfg: CacheConfig, catego
     # If we got wikitext fallback (see part 2), bail to the wikitext parser
     pre = content.find("pre", {"class": "wikitext"})
     if pre:
-        return _parse_uniques_from_wikitext(pre.get_text(), category_hint, wiki_url(page_title))
+        return _parse_uniques_from_wikitext(
+            pre.get_text(), category_hint, wiki_url(page_title)
+        )
 
     items: list[dict] = []
     header_labels_cache: Dict[int, str] = {}
@@ -513,7 +663,9 @@ def parse_unique_table_like_page(page_title: str, cache_cfg: CacheConfig, catego
             # adjust tier when tables embed their own section headers
             ths = tr.find_all("th")
             if ths and not tr.find_all("td"):
-                tier_candidate = _tier_from_text(" ".join(th.get_text(" ", strip=True) for th in ths))
+                tier_candidate = _tier_from_text(
+                    " ".join(th.get_text(" ", strip=True) for th in ths)
+                )
                 if tier_candidate:
                     current_tier = tier_candidate
                 continue
@@ -542,49 +694,68 @@ def parse_unique_table_like_page(page_title: str, cache_cfg: CacheConfig, catego
                     label = header_labels_cache.get(idx, "")
                     if not label:
                         continue
-                    if any(key in label for key in ("base", "item type", "weapon type", "armor type", "type")):
+                    if any(
+                        key in label
+                        for key in (
+                            "base",
+                            "item type",
+                            "weapon type",
+                            "armor type",
+                            "type",
+                        )
+                    ):
                         fallback = _extract_base_type_from_cell(td, norm)
                         if fallback:
                             base_type = fallback
                             break
 
-            items.append({
-                "name": norm,
-                "category": "Unique",
-                "subcategory": base_type or category_hint or infer_subcategory_from_title(content),
-                "tier": current_tier or "",
-                "source_url": wiki_url(page_title),
-            })
+            items.append(
+                {
+                    "name": norm,
+                    "category": "Unique",
+                    "subcategory": base_type
+                    or category_hint
+                    or infer_subcategory_from_title(content),
+                    "tier": current_tier or "",
+                    "source_url": wiki_url(page_title),
+                }
+            )
 
     # Fallback for pages like Unique Charms/Jewels that aren’t true wikitables
     if not items:
-        for h in content.find_all(["h2","h3"]):
+        for h in content.find_all(["h2", "h3"]):
             block = []
             for sib in h.find_all_next():
-                if sib.name in {"h2","h3"}:
+                if sib.name in {"h2", "h3"}:
                     break
                 block.append(str(sib))
             block_soup = BeautifulSoup("".join(block), "lxml")
-            for strong in block_soup.find_all(["b","strong"]):
+            for strong in block_soup.find_all(["b", "strong"]):
                 txt = (strong.get_text(" ", strip=True) or "").strip()
                 if txt and txt.lower() not in UNIQUES_EXCLUDE_TERMS:
-                    items.append({
-                        "name": txt,
-                        "category": "Unique",
-                        "subcategory": category_hint or infer_subcategory_from_title(content),
-                        "tier": "",
-                        "source_url": wiki_url(page_title),
-                    })
+                    items.append(
+                        {
+                            "name": txt,
+                            "category": "Unique",
+                            "subcategory": category_hint
+                            or infer_subcategory_from_title(content),
+                            "tier": "",
+                            "source_url": wiki_url(page_title),
+                        }
+                    )
 
         # dedup
-        seen = set(); dedup = []
+        seen = set()
+        dedup = []
         for it in items:
             k = it["name"].lower()
             if k not in seen:
-                seen.add(k); dedup.append(it)
+                seen.add(k)
+                dedup.append(it)
         items = dedup
 
     return items
+
 
 def discover_unique_subpages(hub_title: str, cache_cfg: CacheConfig) -> List[str]:
     """Discover Diablo II unique item list pages from a hub page."""
@@ -609,8 +780,13 @@ def discover_unique_subpages(hub_title: str, cache_cfg: CacheConfig) -> List[str
                 others.add(sub_title)
 
     # Prefer D2-specific pages; if a weapon family only exists as generic, include it
-    out = sorted(prefer_d2) + [t for t in sorted(others) if not any(t.startswith(x.split("(")[0]) for x in prefer_d2)]
+    out = sorted(prefer_d2) + [
+        t
+        for t in sorted(others)
+        if not any(t.startswith(x.split("(")[0]) for x in prefer_d2)
+    ]
     return out
+
 
 # ----------------------------
 # Top-level parsers
@@ -634,10 +810,16 @@ def parse_all_uniques(cache_cfg: CacheConfig) -> List[Dict]:
             collected.extend(items)
             visited_titles.add(title)
         except Exception as e:
-            print(f"[warn] Failed to parse direct unique page: {title} ({e})", file=sys.stderr)
+            print(
+                f"[warn] Failed to parse direct unique page: {title} ({e})",
+                file=sys.stderr,
+            )
 
     # Discover from hubs
-    for hub_title in (PAGE_TITLES["unique_armor_hub"], PAGE_TITLES["unique_weapons_hub"]):
+    for hub_title in (
+        PAGE_TITLES["unique_armor_hub"],
+        PAGE_TITLES["unique_weapons_hub"],
+    ):
         try:
             subpages = discover_unique_subpages(hub_title, cache_cfg)
             for sp in subpages:
@@ -652,9 +834,15 @@ def parse_all_uniques(cache_cfg: CacheConfig) -> List[Dict]:
                         collected.extend(items)
                         visited_titles.add(sp)
                 except Exception as e:
-                    print(f"[warn] Failed to parse uniques subpage: {sp} ({e})", file=sys.stderr)
+                    print(
+                        f"[warn] Failed to parse uniques subpage: {sp} ({e})",
+                        file=sys.stderr,
+                    )
         except Exception as e:
-            print(f"[warn] Failed to discover from hub: {hub_title} ({e})", file=sys.stderr)
+            print(
+                f"[warn] Failed to discover from hub: {hub_title} ({e})",
+                file=sys.stderr,
+            )
 
     # Deduplicate by name (case-insensitive)
     dedup: Dict[str, Dict] = {}
@@ -663,6 +851,7 @@ def parse_all_uniques(cache_cfg: CacheConfig) -> List[Dict]:
         if key not in dedup:
             dedup[key] = it
     return list(dedup.values())
+
 
 def _tier_from_text(text: str) -> str | None:
     """Map a heading-like string to a gear tier."""
@@ -684,12 +873,14 @@ def _nearest_tier_for(node) -> str | None:
             return tier
     return None
 
+
 def _parse_set_section(h, tier_label, source_url):
     """
     Fallback parser for the older layout:
       <p><a>Set Name</a></p> then the next sibling UL is the pieces list.
     Kept from previous patch in case the page flips back.
     """
+
     def _iter_section_nodes(h):
         for sib in h.next_siblings:
             name = getattr(sib, "name", None)
@@ -740,14 +931,17 @@ def _parse_set_section(h, tier_label, source_url):
                 piece_name = extract_title_text(aa)
                 if not piece_name:
                     continue
-                results.append({
-                    "name": piece_name,
-                    "category": "Set",
-                    "set_name": set_name,
-                    "tier": tier_label,
-                    "source_url": source_url,
-                })
+                results.append(
+                    {
+                        "name": piece_name,
+                        "category": "Set",
+                        "set_name": set_name,
+                        "tier": tier_label,
+                        "source_url": source_url,
+                    }
+                )
     return results
+
 
 def _parse_set_tables_with_tiers(soup, source_url):
     """
@@ -777,7 +971,9 @@ def _parse_set_tables_with_tiers(soup, source_url):
             ul = tds[1].find(["ul", "ol"])
             if not ul:
                 continue
-            piece_links = [li.find("a", href=True) for li in ul.find_all("li", recursive=False)]
+            piece_links = [
+                li.find("a", href=True) for li in ul.find_all("li", recursive=False)
+            ]
             piece_links = [a for a in piece_links if a]
             if not piece_links:
                 continue
@@ -785,14 +981,17 @@ def _parse_set_tables_with_tiers(soup, source_url):
                 piece_name = extract_title_text(a)
                 if not piece_name:
                     continue
-                results.append({
-                    "name": piece_name,
-                    "category": "Set",
-                    "set_name": set_name,
-                    "tier": tier,
-                    "source_url": source_url,
-                })
+                results.append(
+                    {
+                        "name": piece_name,
+                        "category": "Set",
+                        "set_name": set_name,
+                        "tier": tier,
+                        "source_url": source_url,
+                    }
+                )
     return results
+
 
 def parse_all_set_items(cache_cfg: CacheConfig) -> list[dict]:
     """
@@ -821,12 +1020,18 @@ def parse_all_set_items(cache_cfg: CacheConfig) -> list[dict]:
                 headers.append((h, "Elite"))
 
         if not headers:
-            print("[warn] Set page: no section headers found; layout may have changed.", file=sys.stderr)
+            print(
+                "[warn] Set page: no section headers found; layout may have changed.",
+                file=sys.stderr,
+            )
 
         for h, tier in headers:
             rows = _parse_set_section(h, tier, source_url)
             if not rows:
-                print(f"[warn] Parsed 0 set pieces in '{tier}' section — check page layout.", file=sys.stderr)
+                print(
+                    f"[warn] Parsed 0 set pieces in '{tier}' section — check page layout.",
+                    file=sys.stderr,
+                )
             all_rows.extend(rows)
 
     if not all_rows:
@@ -845,11 +1050,14 @@ def parse_all_set_items(cache_cfg: CacheConfig) -> list[dict]:
             s["pieces"] += 1
 
     if tier_counts:
-        summary = ", ".join(f"{tier}: {len(s['sets'])} sets / {s['pieces']} pieces"
-                            for tier, s in tier_counts.items())
+        summary = ", ".join(
+            f"{tier}: {len(s['sets'])} sets / {s['pieces']} pieces"
+            for tier, s in tier_counts.items()
+        )
         print(f"[info] Set parse summary — {summary}", file=sys.stderr)
 
     return list(dedup.values())
+
 
 def parse_runes(cache_cfg: CacheConfig, url: str = RUNE_LIST_URL) -> List[Dict]:
     """
@@ -893,11 +1101,48 @@ def parse_runes(cache_cfg: CacheConfig, url: str = RUNE_LIST_URL) -> List[Dict]:
         if len(ordered) >= 30:
             return [{"name": n, "category": "Rune", "source_url": url} for n in ordered]
     except Exception as e:
-        print(f"[warn] Could not parse rune page; falling back to static list ({e})", file=sys.stderr)
+        print(
+            f"[warn] Could not parse rune page; falling back to static list ({e})",
+            file=sys.stderr,
+        )
 
-    canonical = ["El","Eld","Tir","Nef","Eth","Ith","Tal","Ral","Ort","Thul","Amn","Sol","Shael","Dol","Hel","Io",
-                 "Lum","Ko","Fal","Lem","Pul","Um","Mal","Ist","Gul","Vex","Ohm","Lo","Sur","Ber","Jah","Cham","Zod"]
+    canonical = [
+        "El",
+        "Eld",
+        "Tir",
+        "Nef",
+        "Eth",
+        "Ith",
+        "Tal",
+        "Ral",
+        "Ort",
+        "Thul",
+        "Amn",
+        "Sol",
+        "Shael",
+        "Dol",
+        "Hel",
+        "Io",
+        "Lum",
+        "Ko",
+        "Fal",
+        "Lem",
+        "Pul",
+        "Um",
+        "Mal",
+        "Ist",
+        "Gul",
+        "Vex",
+        "Ohm",
+        "Lo",
+        "Sur",
+        "Ber",
+        "Jah",
+        "Cham",
+        "Zod",
+    ]
     return [{"name": n, "category": "Rune", "source_url": url} for n in canonical]
+
 
 def sanity_check_uniques(unique_rows: list[dict]):
     """Warn if scraped unique rows still contain header/mechanics placeholders."""
@@ -905,7 +1150,11 @@ def sanity_check_uniques(unique_rows: list[dict]):
     bad = [r for r in unique_rows if r["name"].lower() in UNIQUES_EXCLUDE_TERMS]
     if bad:
         examples = ", ".join(sorted({r["name"] for r in bad})[:8])
-        print(f"[warn] Detected header/mechanics terms among uniques (examples: {examples})", file=sys.stderr)
+        print(
+            f"[warn] Detected header/mechanics terms among uniques (examples: {examples})",
+            file=sys.stderr,
+        )
+
 
 # ----------------------------
 # Post-processing helpers
@@ -921,6 +1170,7 @@ FACET_VARIANTS = [
     ("Poison", "Death"),
 ]
 
+
 def explode_rainbow_facet(items: List[Dict]) -> List[Dict]:
     """
     Replace a single "Rainbow Facet" entry with 8 variant rows.
@@ -928,7 +1178,11 @@ def explode_rainbow_facet(items: List[Dict]) -> List[Dict]:
     out: List[Dict] = []
     replaced = False
     for it in items:
-        if it.get("category") == "Unique" and it.get("name", "").lower() == "rainbow facet" and not replaced:
+        if (
+            it.get("category") == "Unique"
+            and it.get("name", "").lower() == "rainbow facet"
+            and not replaced
+        ):
             # Generate 8 variants
             for elem, trigger in FACET_VARIANTS:
                 row = dict(it)
@@ -940,6 +1194,7 @@ def explode_rainbow_facet(items: List[Dict]) -> List[Dict]:
             out.append(it)
     return out
 
+
 # ----------------------------
 # Output
 # ----------------------------
@@ -949,15 +1204,25 @@ def write_json(path: str, payload: dict):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
+
 def write_csv(path: str, rows: list):
     """Write the scraped rows to CSV with a consistent column ordering."""
 
-    fields = ["name", "category", "subcategory", "set_name", "tier", "variant", "source_url"]
+    fields = [
+        "name",
+        "category",
+        "subcategory",
+        "set_name",
+        "tier",
+        "variant",
+        "source_url",
+    ]
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()
         for r in rows:
             w.writerow({k: r.get(k) or "" for k in fields})
+
 
 # ----------------------------
 # Main
@@ -965,14 +1230,36 @@ def write_csv(path: str, rows: list):
 def main():
     """CLI entry point to produce Holy Grail CSV/JSON exports."""
 
-    ap = argparse.ArgumentParser(description="Scrape Diablo II Holy Grail item lists (via MediaWiki API).")
-    ap.add_argument("--out-json", default="holy_grail_items.json", help="Output JSON path")
+    ap = argparse.ArgumentParser(
+        description="Scrape Diablo II Holy Grail item lists (via MediaWiki API)."
+    )
+    ap.add_argument(
+        "--out-json", default="holy_grail_items.json", help="Output JSON path"
+    )
     ap.add_argument("--out-csv", default="holy_grail_items.csv", help="Output CSV path")
-    ap.add_argument("--include-runes", action="store_true", help="Include runes in output")
-    ap.add_argument("--facet-variants", action="store_true", help="Track 8 Rainbow Facet variants instead of one")
-    ap.add_argument("--refresh", action="store_true", help="Ignore cache and fetch fresh")
-    ap.add_argument("--cache-ttl-hours", type=int, default=720, help="Cache TTL in hours (default 720 = 30 days)")
-    ap.add_argument("--delay", type=float, default=0.5, help="Polite delay between HTTP requests (seconds)")
+    ap.add_argument(
+        "--include-runes", action="store_true", help="Include runes in output"
+    )
+    ap.add_argument(
+        "--facet-variants",
+        action="store_true",
+        help="Track 8 Rainbow Facet variants instead of one",
+    )
+    ap.add_argument(
+        "--refresh", action="store_true", help="Ignore cache and fetch fresh"
+    )
+    ap.add_argument(
+        "--cache-ttl-hours",
+        type=int,
+        default=720,
+        help="Cache TTL in hours (default 720 = 30 days)",
+    )
+    ap.add_argument(
+        "--delay",
+        type=float,
+        default=0.5,
+        help="Polite delay between HTTP requests (seconds)",
+    )
     args = ap.parse_args()
 
     cache_cfg = CacheConfig(
@@ -1031,7 +1318,7 @@ def main():
                 "Rune": sum(1 for r in all_rows if r.get("category") == "Rune"),
                 "Total": len(all_rows),
             }
-        }
+        },
     }
 
     write_json(args.out_json, out)
@@ -1042,6 +1329,7 @@ def main():
     print(f"    JSON: {args.out_json}")
     print(f"    CSV : {args.out_csv}")
     print(f"    Cache: {cache_cfg.dir.resolve()} (TTL {cache_cfg.ttl_hours}h)")
+
 
 if __name__ == "__main__":
     main()

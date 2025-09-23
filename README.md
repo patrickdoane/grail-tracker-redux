@@ -49,6 +49,9 @@ A ground-up rebuild of the Diablo II Holy Grail tracker featuring a React (Vite)
   cd grail-server
   ./mvnw test
   ```
+  > The Maven build now runs with Mockito's inline mock maker attached. The Surefire plugin automatically copies
+  > `mockito-core` to `target/mockito-agent.jar` and launches the forked JVM with `-javaagent`. If you invoke the tests
+  > outside Maven, mirror that flag to avoid `ByteBuddy`/self-attach errors on JDK 22.
 
 ### Shared UI Component Library
 

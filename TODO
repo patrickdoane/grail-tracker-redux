@@ -93,8 +93,8 @@
   - Drive onboarding checklist from real task completion signals and add analytics for task interactions
   - Cover critical flows with integration tests and document rollout steps in `docs/settings.md`
 ☐ Establish user authentication & authorization
-  - Evaluate options (Spring Security vs. managed IdP)
-  - Define user model and persistence
+  ✔ Evaluate options (Spring Security vs. managed IdP) @done(25-09-26 14:30)
+  ✔ Define user model and persistence @done(25-09-26 14:30)
   - Add signup/login/logout flows to client shell
   - Gate server-side rune ownership persistence on auth rollout
 ☐ Document database setup and API usage

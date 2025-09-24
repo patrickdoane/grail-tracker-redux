@@ -73,6 +73,7 @@ type ItemDetailPanelProps = {
   onClose: () => void
   isRuneword: boolean
   runeTracking?: RuneTrackingControls
+  logActionsEnabled: boolean
 }
 
 type RuneTrackingControls = {
@@ -89,6 +90,7 @@ function ItemDetailPanel({
   onClose,
   isRuneword,
   runeTracking,
+  logActionsEnabled,
 }: ItemDetailPanelProps) {
   const [activeSection, setActiveSection] = useState<SectionId>('overview')
   const [expandedSections, setExpandedSections] = useState<Set<SectionId>>(() => new Set(['overview']))
@@ -361,6 +363,7 @@ function ItemDetailPanel({
                 <Button
                   variant={isFound ? 'surface' : 'primary'}
                   loading={isMutating}
+                  disabled={!logActionsEnabled}
                   onClick={onToggleFound}
                 >
                   {isFound ? 'Mark as missing' : 'Log find'}

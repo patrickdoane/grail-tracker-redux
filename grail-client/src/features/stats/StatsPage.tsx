@@ -10,6 +10,12 @@ import {
   Grid,
   Stack,
 } from '../../components/ui'
+import { getApiErrorMessage } from '../../lib/apiClient'
+import { useItemsQuery } from '../items/useItemsQuery'
+import type { Item } from '../items/itemsApi'
+import { useUserItemsQuery } from '../user-items/useUserItemsQuery'
+import { type UserItem } from '../user-items/userItemsApi'
+import { useUsersQuery } from '../users/useUsersQuery'
 import './StatsPage.css'
 
 type CompletionMetric = {
@@ -31,60 +37,6 @@ type DropHistoryPoint = {
 }
 
 type Timeframe = '7d' | '30d' | '90d'
-
-const COMPLETION_METRICS: CompletionMetric[] = [
-  {
-    id: 'uniques',
-    label: 'Unique items logged',
-    value: 137,
-    total: 377,
-    delta: 9,
-    description: 'How many unique-tier drops you have recorded so far.',
-    unit: 'count',
-  },
-  {
-    id: 'sets',
-    label: 'Set pieces secured',
-    value: 92,
-    total: 127,
-    delta: 6,
-    description: 'Progress toward assembling every set piece across difficulties.',
-    unit: 'count',
-  },
-  {
-    id: 'runewords',
-    label: 'Runewords completed',
-    value: 23,
-    total: 78,
-    delta: 2,
-    description: 'Finished runewords that met level requirements and rune ownership.',
-    unit: 'count',
-  },
-  {
-    id: 'overall',
-    label: 'Overall grail completion',
-    value: 36,
-    total: 100,
-    delta: 2,
-    description: 'Blended completion score factoring uniques, sets, and runewords.',
-    unit: 'percent',
-  },
-]
-
-const DROP_HISTORY: DropHistoryPoint[] = [
-  { date: '2024-03-10', totalFinds: 6, uniques: 3, sets: 2, runes: 1 },
-  { date: '2024-03-17', totalFinds: 9, uniques: 4, sets: 3, runes: 2 },
-  { date: '2024-03-24', totalFinds: 7, uniques: 3, sets: 2, runes: 2 },
-  { date: '2024-03-31', totalFinds: 12, uniques: 5, sets: 4, runes: 3 },
-  { date: '2024-04-07', totalFinds: 8, uniques: 4, sets: 2, runes: 2 },
-  { date: '2024-04-14', totalFinds: 11, uniques: 5, sets: 3, runes: 3 },
-  { date: '2024-04-21', totalFinds: 13, uniques: 6, sets: 4, runes: 3 },
-  { date: '2024-04-28', totalFinds: 10, uniques: 4, sets: 3, runes: 3 },
-  { date: '2024-05-05', totalFinds: 14, uniques: 6, sets: 5, runes: 3 },
-  { date: '2024-05-12', totalFinds: 9, uniques: 4, sets: 3, runes: 2 },
-  { date: '2024-05-19', totalFinds: 15, uniques: 7, sets: 4, runes: 4 },
-  { date: '2024-05-26', totalFinds: 18, uniques: 8, sets: 6, runes: 4 },
-]
 
 const TIMEFRAME_LENGTH: Record<Timeframe, number> = {
   '7d': 7,
@@ -207,15 +159,40 @@ function StatsPage() {
   const [timeframe, setTimeframe] = useState<Timeframe>('30d')
   const [dropMetric, setDropMetric] = useState<DropMetricKey>('totalFinds')
 
-  const sessionsWithinTimeframe = useMemo(() => {
-    const windowSize = TIMEFRAME_LENGTH[timeframe]
-    const endIndex = DROP_HISTORY.length
-    const startIndex = Math.max(0, endIndex - Math.ceil(windowSize / 7))
-    return DROP_HISTORY.slice(startIndex, endIndex)
-  }, [timeframe])
+  const itemsQuery = useItemsQuery()
+  const usersQuery = useUsersQuery()
+  const activeUserId = useMemo(() => usersQuery.data?.[0]?.id ?? null, [usersQuery.data])
+  const hasActiveUser = typeof activeUserId === 'number'
+  const userItemsQuery = useUserItemsQuery(activeUserId ?? undefined)
+
+  const items = useMemo<Item[]>(() => itemsQuery.data ?? [], [itemsQuery.data])
+  const userItems = useMemo<UserItem[]>(() => userItemsQuery.data ?? [], [userItemsQuery.data])
+
+  const itemsById = useMemo(() => {
+    const map = new Map<number, Item>()
+    items.forEach((item) => {
+      map.set(item.id, item)
+    })
+    return map
+  }, [items])
+
+  const completionMetrics = useMemo(
+    () => buildCompletionMetrics(items, itemsById, userItems, timeframe),
+    [items, itemsById, timeframe, userItems],
+  )
+
+  const dropHistory = useMemo(
+    () => buildDropHistory(userItems, itemsById),
+    [itemsById, userItems],
+  )
+
+  const sessionsWithinTimeframe = useMemo(
+    () => filterDropHistory(dropHistory, timeframe),
+    [dropHistory, timeframe],
+  )
 
   const selectedDropMetric = useMemo(
-    () => DROP_METRIC_OPTIONS.find((option) => option.key === dropMetric)!,
+    () => DROP_METRIC_OPTIONS.find((option) => option.key === dropMetric) ?? DROP_METRIC_OPTIONS[0],
     [dropMetric],
   )
 
@@ -223,6 +200,24 @@ function StatsPage() {
   const averageDropsPerRun = sessionsWithinTimeframe.length
     ? totalDropsInWindow / sessionsWithinTimeframe.length
     : 0
+
+  const isLoading =
+    itemsQuery.status === 'pending' ||
+    usersQuery.status === 'pending' ||
+    (hasActiveUser && userItemsQuery.status === 'pending')
+
+  const errorMessage = (() => {
+    if (itemsQuery.status === 'error') {
+      return getApiErrorMessage(itemsQuery.error, 'Unable to load grail catalogue right now.')
+    }
+    if (usersQuery.status === 'error') {
+      return getApiErrorMessage(usersQuery.error, 'Unable to load grail profiles right now.')
+    }
+    if (hasActiveUser && userItemsQuery.status === 'error') {
+      return getApiErrorMessage(userItemsQuery.error, 'Unable to load your profile statistics right now.')
+    }
+    return null
+  })()
 
   return (
     <Container className="page stats-page" maxWidth="xl">
@@ -234,92 +229,135 @@ function StatsPage() {
         </p>
       </header>
 
-      <section className="stats-page__section">
-        <Stack direction="horizontal" gap="sm" wrap>
-          {TIMEFRAME_OPTIONS.map((option) => (
-            <FilterChip
-              key={option.value}
-              selected={timeframe === option.value}
-              onClick={() => setTimeframe(option.value)}
-            >
-              {option.label}
-            </FilterChip>
-          ))}
-        </Stack>
-
-        <Grid className="stats-metrics" minItemWidth="16rem" gap="lg">
-          {COMPLETION_METRICS.map((metric) => {
-            const percent = metric.unit === 'percent' ? metric.value : (metric.value / metric.total) * 100
-            return (
-              <Card key={metric.id} className="stats-metric-card" aria-live="polite">
-                <CardHeader>
-                  <CardTitle>{metric.label}</CardTitle>
-                  <CardDescription>{metric.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="stats-metric-card__value">
-                    <span className="stats-metric-card__number">
-                      {metric.unit === 'percent' ? `${metric.value}%` : `${metric.value} / ${metric.total}`}
-                    </span>
-                    <span className="stats-metric-card__delta">+{metric.delta} this window</span>
-                  </div>
-                  <div className="stats-metric-card__progress" role="img" aria-label={`Progress ${percent.toFixed(0)} percent`}>
-                    <div className="stats-metric-card__progress-bar" style={{ ['--value' as string]: `${percent}%` }} />
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </Grid>
-      </section>
-
-      <section className="stats-page__section">
-        <Stack direction="horizontal" justify="between" align="center" wrap gap="sm">
-          <div>
-            <h2 className="stats-section-title">Drop activity</h2>
-            <p className="stats-section-subtitle">Session-by-session breakdown of tracked finds.</p>
-          </div>
-          <Stack direction="horizontal" gap="xs" wrap align="center">
-            {DROP_METRIC_OPTIONS.map((option) => (
-              <FilterChip
-                key={option.key}
-                selected={dropMetric === option.key}
-                onClick={() => setDropMetric(option.key)}
-              >
-                {option.label}
-              </FilterChip>
-            ))}
-          </Stack>
-        </Stack>
-
-        <Card className="stats-chart-card">
+      {errorMessage ? (
+        <Card>
           <CardHeader>
-            <CardTitle>{selectedDropMetric.label}</CardTitle>
-            <CardDescription>{selectedDropMetric.description}</CardDescription>
+            <CardTitle>Unable to load profile data</CardTitle>
+            <CardDescription>{errorMessage}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <DropMetricChart
-              data={sessionsWithinTimeframe}
-              metric={dropMetric}
-              metricLabel={selectedDropMetric.label}
-            />
-            <dl className="chart-insights">
-              <div>
-                <dt>Sessions analyzed</dt>
-                <dd>{sessionsWithinTimeframe.length}</dd>
-              </div>
-              <div>
-                <dt>Total drops</dt>
-                <dd>{totalDropsInWindow}</dd>
-              </div>
-              <div>
-                <dt>Average per run</dt>
-                <dd>{averageDropsPerRun.toFixed(1)}</dd>
-              </div>
-            </dl>
-          </CardContent>
         </Card>
-      </section>
+      ) : isLoading ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Loading profile statistics…</CardTitle>
+            <CardDescription>Fetching your latest grail progress and drop history.</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : !hasActiveUser ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>No grail profile available</CardTitle>
+            <CardDescription>
+              Create a grail hunter user via the API to start logging finds and unlock personalized stats.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        <>
+          <section className="stats-page__section">
+            <Stack direction="horizontal" gap="sm" wrap>
+              {TIMEFRAME_OPTIONS.map((option) => (
+                <FilterChip
+                  key={option.value}
+                  selected={timeframe === option.value}
+                  onClick={() => setTimeframe(option.value)}
+                >
+                  {option.label}
+                </FilterChip>
+              ))}
+            </Stack>
+
+            <Grid className="stats-metrics" minItemWidth="16rem" gap="lg">
+              {completionMetrics.map((metric) => {
+                const percent =
+                  metric.unit === 'percent'
+                    ? metric.value
+                    : metric.total > 0
+                      ? (metric.value / metric.total) * 100
+                      : 0
+                const deltaPrefix = metric.delta >= 0 ? '+' : '−'
+                const deltaValue = Math.abs(metric.delta)
+                const deltaLabel =
+                  metric.unit === 'percent'
+                    ? `${deltaPrefix}${deltaValue}% this window`
+                    : `${deltaPrefix}${deltaValue} this window`
+
+                return (
+                  <Card key={metric.id} className="stats-metric-card" aria-live="polite">
+                    <CardHeader>
+                      <CardTitle>{metric.label}</CardTitle>
+                      <CardDescription>{metric.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="stats-metric-card__value">
+                        <span className="stats-metric-card__number">
+                          {metric.unit === 'percent' ? `${metric.value}%` : `${metric.value} / ${metric.total}`}
+                        </span>
+                        <span className="stats-metric-card__delta">{deltaLabel}</span>
+                      </div>
+                      <div
+                        className="stats-metric-card__progress"
+                        role="img"
+                        aria-label={`Progress ${percent.toFixed(0)} percent`}
+                      >
+                        <div className="stats-metric-card__progress-bar" style={{ ['--value' as string]: `${percent}%` }} />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </Grid>
+          </section>
+
+          <section className="stats-page__section">
+            <Stack direction="horizontal" justify="between" align="center" wrap gap="sm">
+              <div>
+                <h2 className="stats-section-title">Drop activity</h2>
+                <p className="stats-section-subtitle">Session-by-session breakdown of tracked finds.</p>
+              </div>
+              <Stack direction="horizontal" gap="xs" wrap align="center">
+                {DROP_METRIC_OPTIONS.map((option) => (
+                  <FilterChip
+                    key={option.key}
+                    selected={dropMetric === option.key}
+                    onClick={() => setDropMetric(option.key)}
+                  >
+                    {option.label}
+                  </FilterChip>
+                ))}
+              </Stack>
+            </Stack>
+
+            <Card className="stats-chart-card">
+              <CardHeader>
+                <CardTitle>{selectedDropMetric.label}</CardTitle>
+                <CardDescription>{selectedDropMetric.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DropMetricChart
+                  data={sessionsWithinTimeframe}
+                  metric={dropMetric}
+                  metricLabel={selectedDropMetric.label}
+                />
+                <dl className="chart-insights">
+                  <div>
+                    <dt>Sessions analyzed</dt>
+                    <dd>{sessionsWithinTimeframe.length}</dd>
+                  </div>
+                  <div>
+                    <dt>Total drops</dt>
+                    <dd>{totalDropsInWindow}</dd>
+                  </div>
+                  <div>
+                    <dt>Average per run</dt>
+                    <dd>{averageDropsPerRun.toFixed(1)}</dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
+          </section>
+        </>
+      )}
 
       <section className="stats-page__section">
         <h2 className="stats-section-title">Farming hotspots</h2>
@@ -383,6 +421,209 @@ function StatsPage() {
       </section>
     </Container>
   )
+}
+
+type ItemCategory = 'unique' | 'set' | 'runeword' | 'rune' | 'other'
+
+function buildCompletionMetrics(
+  items: Item[],
+  itemsById: Map<number, Item>,
+  userItems: UserItem[],
+  timeframe: Timeframe,
+): CompletionMetric[] {
+  const totals = {
+    unique: 0,
+    set: 0,
+    runeword: 0,
+  }
+
+  items.forEach((item) => {
+    const category = classifyItem(item)
+    if (category === 'unique') {
+      totals.unique += 1
+    } else if (category === 'set') {
+      totals.set += 1
+    } else if (category === 'runeword') {
+      totals.runeword += 1
+    }
+  })
+
+  const found = {
+    unique: new Set<number>(),
+    set: new Set<number>(),
+    runeword: new Set<number>(),
+  }
+
+  const windowFound = {
+    unique: new Set<number>(),
+    set: new Set<number>(),
+    runeword: new Set<number>(),
+  }
+
+  const windowStart = getTimeframeStart(timeframe)
+
+  userItems.forEach((entry) => {
+    const item = itemsById.get(entry.itemId)
+    const category = classifyItem(item)
+    const foundAt = parseDate(entry.foundAt)
+    const inWindow = foundAt ? foundAt >= windowStart : false
+
+    if (category === 'unique') {
+      found.unique.add(entry.itemId)
+      if (inWindow) {
+        windowFound.unique.add(entry.itemId)
+      }
+    }
+
+    if (category === 'set') {
+      found.set.add(entry.itemId)
+      if (inWindow) {
+        windowFound.set.add(entry.itemId)
+      }
+    }
+
+    if (category === 'runeword') {
+      found.runeword.add(entry.itemId)
+      if (inWindow) {
+        windowFound.runeword.add(entry.itemId)
+      }
+    }
+  })
+
+  const totalCollectionItems = totals.unique + totals.set + totals.runeword
+  const totalFoundItems = found.unique.size + found.set.size + found.runeword.size
+  const totalWindowItems = windowFound.unique.size + windowFound.set.size + windowFound.runeword.size
+
+  const overallPercent = totalCollectionItems > 0 ? Math.round((totalFoundItems / totalCollectionItems) * 100) : 0
+  const windowPercent = totalCollectionItems > 0 ? Math.round((totalWindowItems / totalCollectionItems) * 100) : 0
+
+  return [
+    {
+      id: 'uniques',
+      label: 'Unique items logged',
+      value: found.unique.size,
+      total: totals.unique,
+      delta: windowFound.unique.size,
+      description: 'How many unique-tier drops you have recorded so far.',
+      unit: 'count',
+    },
+    {
+      id: 'sets',
+      label: 'Set pieces secured',
+      value: found.set.size,
+      total: totals.set,
+      delta: windowFound.set.size,
+      description: 'Progress toward assembling every set piece across difficulties.',
+      unit: 'count',
+    },
+    {
+      id: 'runewords',
+      label: 'Runewords completed',
+      value: found.runeword.size,
+      total: totals.runeword,
+      delta: windowFound.runeword.size,
+      description: 'Finished runewords that met level requirements and rune ownership.',
+      unit: 'count',
+    },
+    {
+      id: 'overall',
+      label: 'Overall grail completion',
+      value: overallPercent,
+      total: 100,
+      delta: windowPercent,
+      description: 'Blended completion score factoring uniques, sets, and runewords.',
+      unit: 'percent',
+    },
+  ]
+}
+
+function buildDropHistory(userItems: UserItem[], itemsById: Map<number, Item>): DropHistoryPoint[] {
+  const groups = new Map<string, DropHistoryPoint>()
+
+  userItems.forEach((entry) => {
+    const timestamp = parseDate(entry.foundAt)
+    if (!timestamp) {
+      return
+    }
+
+    const dateKey = formatDateKey(timestamp)
+    const bucket = groups.get(dateKey) ?? {
+      date: dateKey,
+      totalFinds: 0,
+      uniques: 0,
+      sets: 0,
+      runes: 0,
+    }
+
+    bucket.totalFinds += 1
+
+    const item = itemsById.get(entry.itemId)
+    const category = classifyItem(item)
+
+    if (category === 'unique') {
+      bucket.uniques += 1
+    } else if (category === 'set') {
+      bucket.sets += 1
+    } else if (category === 'rune') {
+      bucket.runes += 1
+    }
+
+    groups.set(dateKey, bucket)
+  })
+
+  return Array.from(groups.values()).sort((left, right) => left.date.localeCompare(right.date))
+}
+
+function filterDropHistory(data: DropHistoryPoint[], timeframe: Timeframe): DropHistoryPoint[] {
+  const windowStart = getTimeframeStart(timeframe)
+
+  return data.filter((point) => {
+    const date = parseDate(`${point.date}T00:00:00`)
+    return date ? date >= windowStart : false
+  })
+}
+
+function getTimeframeStart(timeframe: Timeframe): Date {
+  const days = TIMEFRAME_LENGTH[timeframe]
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - (days - 1))
+  return start
+}
+
+function classifyItem(item?: Item | null): ItemCategory {
+  const value = item?.quality?.toLowerCase() ?? ''
+  if (value === 'unique') {
+    return 'unique'
+  }
+  if (value === 'set') {
+    return 'set'
+  }
+  if (value === 'runeword') {
+    return 'runeword'
+  }
+  if (value === 'rune') {
+    return 'rune'
+  }
+  return 'other'
+}
+
+function parseDate(input: string | null | undefined): Date | null {
+  if (!input) {
+    return null
+  }
+  const date = new Date(input)
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+  return date
+}
+
+function formatDateKey(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
@@ -512,7 +753,7 @@ function DropMetricChart({ data, metric, metricLabel }: DropMetricChartProps) {
           aria-labelledby={`${chartTitleId} ${chartDescId}`}
         >
           <title id={chartTitleId}>{`${metricLabel} per session`}</title>
-          <desc id={chartDescId}>{`Weekly totals from ${rangeLabel}. Peak value ${axisMaxLabel}.`}</desc>
+          <desc id={chartDescId}>{`Tracked totals from ${rangeLabel}. Peak value ${axisMaxLabel}.`}</desc>
           <defs>
             <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stopColor="#facc15" stopOpacity="0.35" />
@@ -588,7 +829,7 @@ function DropMetricChart({ data, metric, metricLabel }: DropMetricChartProps) {
           })}
         </svg>
       </div>
-      <p className="drop-chart__caption">Weekly totals from {rangeLabel}.</p>
+      <p className="drop-chart__caption">Tracked totals from {rangeLabel}.</p>
     </div>
   )
 }

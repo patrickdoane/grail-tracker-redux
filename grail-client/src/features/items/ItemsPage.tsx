@@ -5,7 +5,7 @@ import {
   useState,
   type ChangeEvent,
 } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Button,
   Card,
@@ -30,6 +30,9 @@ import type { Item } from './itemsApi'
 import ItemDetailPanel from './ItemDetailPanel'
 import { normalizeRuneName, runeNamesMatch } from './runeUtils'
 import './ItemsPage.css'
+import { useUserItemsQuery } from '../user-items/useUserItemsQuery'
+import { createUserItem, deleteUserItem, userItemsKeys, type UserItem } from '../user-items/userItemsApi'
+import { useUsersQuery } from '../users/useUsersQuery'
 
 const CATALOGUE_ESTIMATE = 500
 
@@ -50,9 +53,11 @@ type LogFindVariables = {
 
 type LogFindContext = {
   previous: Set<number>
+  previousRecords: Map<number, UserItem>
 }
 
 function ItemsPage() {
+  const queryClient = useQueryClient()
   const [rarityFilter, setRarityFilter] = useState<RarityFilter>('all')
   const [qualityFilter, setQualityFilter] = useState<RarityFilter>('all')
   const [versionFilter, setVersionFilter] = useState<RarityFilter>('all')
@@ -60,6 +65,7 @@ function ItemsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
   const [foundItemIds, setFoundItemIds] = useState<Set<number>>(() => new Set())
+  const [userItemRecords, setUserItemRecords] = useState<Map<number, UserItem>>(() => new Map())
   const [runewordRunesOwned, setRunewordRunesOwned] = useState<Map<number, Set<string>>>(() => {
     if (typeof window === 'undefined') {
       return new Map()
@@ -91,7 +97,28 @@ function ItemsPage() {
   })
 
   const itemsQuery = useItemsQuery()
+  const usersQuery = useUsersQuery()
+  const activeUserId = useMemo(() => usersQuery.data?.[0]?.id ?? null, [usersQuery.data])
+  const canLogFinds = typeof activeUserId === 'number'
+  const userItemsQuery = useUserItemsQuery(activeUserId ?? undefined)
   const items = useMemo<Item[]>(() => itemsQuery.data ?? [], [itemsQuery.data])
+  const userItems = useMemo<UserItem[]>(() => userItemsQuery.data ?? [], [userItemsQuery.data])
+  useEffect(() => {
+    setUserItemRecords(() => {
+      const next = new Map<number, UserItem>()
+      userItems.forEach((entry) => {
+        next.set(entry.itemId, entry)
+      })
+      return next
+    })
+    setFoundItemIds(() => {
+      const next = new Set<number>()
+      userItems.forEach((entry) => {
+        next.add(entry.itemId)
+      })
+      return next
+    })
+  }, [userItems])
 
   const rarityOptions = useMemo(() => {
     const values = new Set<string>()
@@ -200,13 +227,50 @@ function ItemsPage() {
     }
   }
 
-  const logFindMutation = useMutation<number, Error, LogFindVariables, LogFindContext>({
-    mutationFn: async ({ itemId }) => {
-      await new Promise((resolve) => setTimeout(resolve, 350))
-      return itemId
+  const logFindMutation = useMutation<UserItem | null, Error, LogFindVariables, LogFindContext>({
+    mutationFn: async ({ itemId, found }) => {
+      if (!canLogFinds || typeof activeUserId !== 'number') {
+        throw new Error('Select a grail profile before logging finds.')
+      }
+
+      if (found) {
+        return createUserItem({
+          userId: activeUserId,
+          itemId,
+          foundAt: new Date().toISOString(),
+        })
+      }
+
+      const existing = userItemRecords.get(itemId)
+      if (!existing || existing.id <= 0) {
+        throw new Error('No logged find to remove for this item yet.')
+      }
+      await deleteUserItem(existing.id)
+      return null
     },
     onMutate: (variables) => {
       const previous = new Set(foundItemIds)
+      const previousRecords = new Map(userItemRecords)
+      const timestamp = new Date().toISOString()
+      if (!canLogFinds || typeof activeUserId !== 'number') {
+        return { previous, previousRecords }
+      }
+      setUserItemRecords((prev) => {
+        const next = new Map(prev)
+        if (variables.found) {
+          const placeholderId = -Date.now()
+          next.set(variables.itemId, {
+            id: placeholderId,
+            userId: activeUserId,
+            itemId: variables.itemId,
+            foundAt: timestamp,
+            notes: null,
+          })
+        } else {
+          next.delete(variables.itemId)
+        }
+        return next
+      })
       setFoundItemIds((prev) => {
         const next = new Set(prev)
         if (variables.found) {
@@ -216,11 +280,35 @@ function ItemsPage() {
         }
         return next
       })
-      return { previous }
+      return { previous, previousRecords }
     },
     onError: (_error, _variables, context) => {
       if (context?.previous) {
         setFoundItemIds(new Set(context.previous))
+      }
+      if (context?.previousRecords) {
+        setUserItemRecords(new Map(context.previousRecords))
+      }
+    },
+    onSuccess: (data, variables) => {
+      if (variables.found && data) {
+        setUserItemRecords((prev) => {
+          const next = new Map(prev)
+          next.set(variables.itemId, data)
+          return next
+        })
+      }
+      if (!variables.found) {
+        setUserItemRecords((prev) => {
+          const next = new Map(prev)
+          next.delete(variables.itemId)
+          return next
+        })
+      }
+    },
+    onSettled: () => {
+      if (typeof activeUserId === 'number') {
+        queryClient.invalidateQueries({ queryKey: userItemsKeys.byUser(activeUserId) })
       }
     },
   })
@@ -235,6 +323,27 @@ function ItemsPage() {
   const statusText = (() => {
     if (itemsQuery.status === 'pending') {
       return 'Fetching grail items from the server…'
+    }
+    if (itemsQuery.status === 'error') {
+      return getApiErrorMessage(itemsQuery.error, 'Unable to load grail items right now.')
+    }
+    if (usersQuery.status === 'pending') {
+      return 'Loading available grail hunter profiles…'
+    }
+    if (usersQuery.status === 'error') {
+      return getApiErrorMessage(usersQuery.error, 'Unable to load grail profiles. Logging is disabled until this resolves.')
+    }
+    if (!canLogFinds) {
+      return 'Create a grail hunter profile to start logging finds and tracking progress.'
+    }
+    if (userItemsQuery.status === 'pending') {
+      return 'Fetching your logged finds from the server…'
+    }
+    if (userItemsQuery.status === 'error') {
+      return 'Unable to refresh your logged finds. Progress indicators may be stale.'
+    }
+    if (userItemsQuery.isFetching && userItemsQuery.status === 'success') {
+      return `Refreshing ${userItems.length} logged finds…`
     }
     if (itemsQuery.isFetching && itemsQuery.status === 'success') {
       return `Refreshing ${items.length} loaded items…`
@@ -303,6 +412,16 @@ function ItemsPage() {
     setSearchTerm('')
   }
 
+  const toggleItemFound = useCallback(
+    (itemId: number, shouldBeFound: boolean) => {
+      if (!canLogFinds) {
+        return
+      }
+      logFindMutation.mutate({ itemId, found: shouldBeFound })
+    },
+    [canLogFinds, logFindMutation],
+  )
+
   const filtersArePristine =
     rarityFilter === 'all' &&
     qualityFilter === 'all' &&
@@ -313,12 +432,12 @@ function ItemsPage() {
   const handleQuickLog = () => {
     const target =
       (selectedItemId && items.find((item) => item.id === selectedItemId)) || filteredItems[0] || null
-    if (!target) {
+    if (!target || !canLogFinds) {
       return
     }
 
     const isFound = foundItemIds.has(target.id)
-    logFindMutation.mutate({ itemId: target.id, found: !isFound })
+    toggleItemFound(target.id, !isFound)
   }
 
   return (
@@ -479,6 +598,41 @@ function ItemsPage() {
           </Card>
         )}
 
+        {userItemsQuery.status === 'pending' && (
+          <Card className="items-page__status-card">
+            <CardContent>
+              <Stack gap="xs">
+                <StatusBadge variant="info">Syncing progress</StatusBadge>
+                <CardDescription>
+                  Loading your logged finds so we can highlight collected items.
+                </CardDescription>
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
+
+        {userItemsQuery.status === 'error' && (
+          <Card className="items-page__status-card">
+            <CardContent>
+              <Stack gap="sm">
+                <Stack direction="horizontal" gap="sm" align="center">
+                  <StatusBadge variant="danger">Sync failed</StatusBadge>
+                  <span className="items-page__error-message">
+                    {getApiErrorMessage(userItemsQuery.error)}
+                  </span>
+                </Stack>
+                <CardDescription>
+                  Progress indicators may be outdated until we reconnect. Ensure the backend is running and try
+                  again.
+                </CardDescription>
+                <Button variant="secondary" onClick={() => userItemsQuery.refetch()}>
+                  Retry syncing
+                </Button>
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
+
         {filteredItems.length > 0 && (
           <Grid gap="lg" className="items-page__grid" minItemWidth="18rem">
             {filteredItems.map((item) => {
@@ -539,7 +693,8 @@ function ItemsPage() {
                       <Button
                         variant={isFound ? 'surface' : 'primary'}
                         loading={isMutating}
-                        onClick={() => logFindMutation.mutate({ itemId: item.id, found: !isFound })}
+                        disabled={!canLogFinds}
+                        onClick={() => toggleItemFound(item.id, !isFound)}
                       >
                         {isFound ? 'Mark as missing' : 'Log find'}
                       </Button>
@@ -560,11 +715,10 @@ function ItemsPage() {
               item={selectedItem}
               isFound={selectedItemIsFound}
               isMutating={selectedItemIsMutating}
-              onToggleFound={() =>
-                logFindMutation.mutate({ itemId: selectedItem.id, found: !selectedItemIsFound })
-              }
+              onToggleFound={() => toggleItemFound(selectedItem.id, !selectedItemIsFound)}
               onClose={() => setSelectedItemId(null)}
               isRuneword={selectedItemIsRuneword}
+              logActionsEnabled={canLogFinds}
               runeTracking={
                 selectedItemIsRuneword
                   ? {
@@ -593,7 +747,7 @@ function ItemsPage() {
         }
         onClick={handleQuickLog}
         aria-label="Log find for selected item"
-        disabled={logFindMutation.isPending || filteredItems.length === 0}
+        disabled={!canLogFinds || logFindMutation.isPending || filteredItems.length === 0}
       >
         {logFindMutation.isPending ? 'Logging…' : 'Quick log'}
       </FloatingActionButton>

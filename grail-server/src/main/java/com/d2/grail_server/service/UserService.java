@@ -85,11 +85,11 @@ public class UserService {
   private void applyRequest(User user, UserRequest request) {
     user.setUsername(request.getUsername());
     user.setEmail(request.getEmail());
-    if (request.getPassword() != null && !request.getPassword().isBlank()) {
+    if (request.getPassword() != null && !request.getPassword().trim().isEmpty()) {
       user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
     }
 
-    if (request.getRole() != null && !request.getRole().isBlank()) {
+    if (request.getRole() != null && !request.getRole().trim().isEmpty()) {
       user.setRole(Role.valueOf(request.getRole().toUpperCase()));
     } else if (user.getRole() == null) {
       user.setRole(Role.USER);

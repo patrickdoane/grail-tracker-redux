@@ -48,7 +48,7 @@
 ☐ Create item detail view @started(25-09-23 09:32)
   ✔ Implement hero banner with rarity ribbon, item art, and quick action buttons @done(25-09-23 08:33)
   ✔ Add Overview, Drop Sources, Variants, and Notes tabs/accordions with responsive collapse @done(25-09-23 17:13)
-    ✔ Ship tabbed + accordion variant layout with fallback list for legacy paths
+    ✔ Ship tabbed + accordion variant layout with fallback list for legacy paths @done(25-09-23 17:13)
   ✔ Wire external wiki link and track outbound analytics event @done(25-09-23 18:26)
   - Stand up telemetry capture for detail interactions (defer until post-UX polish)
     - Define outbound link event contract and payload requirements (defer until post-UX polish)
@@ -58,21 +58,25 @@
   ✔ Surface runeword recipe guidance in Overview panel @done(25-09-23 16:02)
   ✔ Enable rune-by-rune tracking (mark owned, deep link to rune entries) @done(25-09-25 13:05)
     - TODO: Persist rune ownership via backend API once UX stabilization is complete
-☐ Implement Sets & Runewords page @started(25-09-23 09:32)
+✔ Implement Sets & Runewords page @started(25-09-23 09:32) @done(25-09-23 15:49) @lasted(6h17m)
   ✔ Build collection cards with progress bars and checklist modal/sheet @done(25-09-23 09:39)
-  ✔ Support toggling between set/runeword views with filter chips and saved URL params
-  ✔ Surface trading collaboration notes panel for future real-time sync
-  ✔ Extend data pipeline to include runewords
+  ✔ Support toggling between set/runeword views with filter chips and saved URL params @done(25-09-23 09:45)
+  ✔ Surface trading collaboration notes panel for future real-time sync @done(25-09-23 10:05)
+  ✔ Extend data pipeline to include runewords @done(25-09-23 15:49)
     ✔ Update `scripts/d2_holy_grail_scraper.py` to capture runeword recipes and components @done(25-09-23 15:48)
     ✔ Refresh `scripts/make_official_reference.py` to persist runewords alongside sets @done(25-09-23 15:48)
     ✔ Expand `scripts/seed_database.py` to import runeword records and related metadata @done(25-09-23 15:49)
 ☐ Develop statistics & insights page
-  - Display completion snapshot and rarity breakdown cards with responsive charts
+  ✔ Display completion snapshot and rarity breakdown cards with responsive charts @done(25-09-23 21:38)
   - Prototype drop-source heatmap and act progression timelines (lightweight SVG)
   - Provide export/share controls for progress summaries (image + CSV)
   - Prioritize prototype to drive metrics requirements
-  - Replace placeholder drop activity visualization with a real chart wired to the selected metric
-  - Feed cards and charts from live profile statistics instead of hard-coded demo data
+  - Layer timeframe toggles (7-day, 30-day, lifetime) across charts to contextualize trends
+  - Break down completion snapshot by item category (uniques, sets, runewords, runes)
+  - Forecast grail completion velocity using recent find cadence
+  - Surface recent milestones and streak callouts alongside insight copy
+  ✔ Replace placeholder drop activity visualization with a real chart wired to the selected metric @done(25-09-23 22:16)
+  ✔ Feed cards and charts from live profile statistics instead of hard-coded demo data @done(25-09-23 22:29)
   - Author dynamic insight copy that highlights notable trends or outliers from the player's recent runs
 ☐ Refresh settings & data management
   - Organize account, appearance, data, and onboarding sections with inline forms

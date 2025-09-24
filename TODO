@@ -78,11 +78,11 @@
   ✔ Replace placeholder drop activity visualization with a real chart wired to the selected metric @done(25-09-23 22:16)
   ✔ Feed cards and charts from live profile statistics instead of hard-coded demo data @done(25-09-23 22:29)
   - Author dynamic insight copy that highlights notable trends or outliers from the player's recent runs
-☐ Refresh settings & data management
-  - Organize account, appearance, data, and onboarding sections with inline forms
-  - Add theme toggles (dark, light, high-contrast) and sync status indicators
-  - Outline import/export flows aligned with backend endpoints and offline safeguards
-  - Prototype shell early to host future auth + data controls
+✔ Refresh settings & data management @started(25-09-26 08:05) @done(25-09-26 09:55) @lasted(1h50m)
+  ✔ Organize account, appearance, data, and onboarding sections with inline forms @done(25-09-26 09:05)
+  ✔ Add theme toggles (dark, light, high-contrast) and sync status indicators @done(25-09-26 09:15)
+  ✔ Outline import/export flows aligned with backend endpoints and offline safeguards @done(25-09-26 09:35)
+  ✔ Prototype shell early to host future auth + data controls @done(25-09-26 09:55)
 ☐ Establish user authentication & authorization
   - Evaluate options (Spring Security vs. managed IdP)
   - Define user model and persistence

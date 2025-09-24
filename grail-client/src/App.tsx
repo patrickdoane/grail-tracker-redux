@@ -3,6 +3,7 @@ import AppShell from './components/AppShell'
 import ItemsPage from './features/items/ItemsPage'
 import StatsPage from './features/stats/StatsPage'
 import SetsRunewordsPage from './features/sets/SetsRunewordsPage'
+import SettingsPage from './features/settings/SettingsPage'
 import './App.css'
 
 const router = createBrowserRouter([
@@ -28,12 +29,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'settings',
-        element: (
-          <ComingSoon
-            title="Settings & Data"
-            description="Manage your profile, theme preferences, and import/export flows."
-          />
-        ),
+        element: <SettingsPage />,
       },
       {
         path: '*',

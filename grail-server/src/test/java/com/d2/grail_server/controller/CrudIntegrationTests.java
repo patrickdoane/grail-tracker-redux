@@ -172,7 +172,7 @@ class CrudIntegrationTests {
     UserRequest userRequest = new UserRequest();
     userRequest.setUsername("grail_runner");
     userRequest.setEmail("runner@example.com");
-    userRequest.setPasswordHash("hashed-password");
+    userRequest.setPassword("StrongP@ssw0rd!");
 
     MvcResult userResult =
         mockMvc

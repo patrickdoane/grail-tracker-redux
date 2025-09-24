@@ -31,13 +31,8 @@ import ItemDetailPanel from './ItemDetailPanel'
 import { normalizeRuneName, runeNamesMatch } from './runeUtils'
 import './ItemsPage.css'
 import { useUserItemsQuery } from '../user-items/useUserItemsQuery'
-import {
-  DEFAULT_USER_ID,
-  createUserItem,
-  deleteUserItem,
-  userItemsKeys,
-  type UserItem,
-} from '../user-items/userItemsApi'
+import { createUserItem, deleteUserItem, userItemsKeys, type UserItem } from '../user-items/userItemsApi'
+import { useUsersQuery } from '../users/useUsersQuery'
 
 const CATALOGUE_ESTIMATE = 500
 
@@ -102,7 +97,10 @@ function ItemsPage() {
   })
 
   const itemsQuery = useItemsQuery()
-  const userItemsQuery = useUserItemsQuery(DEFAULT_USER_ID)
+  const usersQuery = useUsersQuery()
+  const activeUserId = useMemo(() => usersQuery.data?.[0]?.id ?? null, [usersQuery.data])
+  const canLogFinds = typeof activeUserId === 'number'
+  const userItemsQuery = useUserItemsQuery(activeUserId ?? undefined)
   const items = useMemo<Item[]>(() => itemsQuery.data ?? [], [itemsQuery.data])
   const userItems = useMemo<UserItem[]>(() => userItemsQuery.data ?? [], [userItemsQuery.data])
   useEffect(() => {
@@ -231,9 +229,13 @@ function ItemsPage() {
 
   const logFindMutation = useMutation<UserItem | null, Error, LogFindVariables, LogFindContext>({
     mutationFn: async ({ itemId, found }) => {
+      if (!canLogFinds || typeof activeUserId !== 'number') {
+        throw new Error('Select a grail profile before logging finds.')
+      }
+
       if (found) {
         return createUserItem({
-          userId: DEFAULT_USER_ID,
+          userId: activeUserId,
           itemId,
           foundAt: new Date().toISOString(),
         })
@@ -250,13 +252,16 @@ function ItemsPage() {
       const previous = new Set(foundItemIds)
       const previousRecords = new Map(userItemRecords)
       const timestamp = new Date().toISOString()
+      if (!canLogFinds || typeof activeUserId !== 'number') {
+        return { previous, previousRecords }
+      }
       setUserItemRecords((prev) => {
         const next = new Map(prev)
         if (variables.found) {
           const placeholderId = -Date.now()
           next.set(variables.itemId, {
             id: placeholderId,
-            userId: DEFAULT_USER_ID,
+            userId: activeUserId,
             itemId: variables.itemId,
             foundAt: timestamp,
             notes: null,
@@ -302,7 +307,9 @@ function ItemsPage() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: userItemsKeys.byUser(DEFAULT_USER_ID) })
+      if (typeof activeUserId === 'number') {
+        queryClient.invalidateQueries({ queryKey: userItemsKeys.byUser(activeUserId) })
+      }
     },
   })
 
@@ -314,8 +321,23 @@ function ItemsPage() {
     Boolean(selectedItem) && logFindMutation.isPending && pendingItemId === selectedItem?.id
 
   const statusText = (() => {
-    if (itemsQuery.status === 'pending' || userItemsQuery.status === 'pending') {
-      return 'Fetching grail items and your logged finds from the server…'
+    if (itemsQuery.status === 'pending') {
+      return 'Fetching grail items from the server…'
+    }
+    if (itemsQuery.status === 'error') {
+      return getApiErrorMessage(itemsQuery.error, 'Unable to load grail items right now.')
+    }
+    if (usersQuery.status === 'pending') {
+      return 'Loading available grail hunter profiles…'
+    }
+    if (usersQuery.status === 'error') {
+      return getApiErrorMessage(usersQuery.error, 'Unable to load grail profiles. Logging is disabled until this resolves.')
+    }
+    if (!canLogFinds) {
+      return 'Create a grail hunter profile to start logging finds and tracking progress.'
+    }
+    if (userItemsQuery.status === 'pending') {
+      return 'Fetching your logged finds from the server…'
     }
     if (userItemsQuery.status === 'error') {
       return 'Unable to refresh your logged finds. Progress indicators may be stale.'
@@ -390,6 +412,16 @@ function ItemsPage() {
     setSearchTerm('')
   }
 
+  const toggleItemFound = useCallback(
+    (itemId: number, shouldBeFound: boolean) => {
+      if (!canLogFinds) {
+        return
+      }
+      logFindMutation.mutate({ itemId, found: shouldBeFound })
+    },
+    [canLogFinds, logFindMutation],
+  )
+
   const filtersArePristine =
     rarityFilter === 'all' &&
     qualityFilter === 'all' &&
@@ -400,12 +432,12 @@ function ItemsPage() {
   const handleQuickLog = () => {
     const target =
       (selectedItemId && items.find((item) => item.id === selectedItemId)) || filteredItems[0] || null
-    if (!target) {
+    if (!target || !canLogFinds) {
       return
     }
 
     const isFound = foundItemIds.has(target.id)
-    logFindMutation.mutate({ itemId: target.id, found: !isFound })
+    toggleItemFound(target.id, !isFound)
   }
 
   return (
@@ -661,7 +693,8 @@ function ItemsPage() {
                       <Button
                         variant={isFound ? 'surface' : 'primary'}
                         loading={isMutating}
-                        onClick={() => logFindMutation.mutate({ itemId: item.id, found: !isFound })}
+                        disabled={!canLogFinds}
+                        onClick={() => toggleItemFound(item.id, !isFound)}
                       >
                         {isFound ? 'Mark as missing' : 'Log find'}
                       </Button>
@@ -682,11 +715,10 @@ function ItemsPage() {
               item={selectedItem}
               isFound={selectedItemIsFound}
               isMutating={selectedItemIsMutating}
-              onToggleFound={() =>
-                logFindMutation.mutate({ itemId: selectedItem.id, found: !selectedItemIsFound })
-              }
+              onToggleFound={() => toggleItemFound(selectedItem.id, !selectedItemIsFound)}
               onClose={() => setSelectedItemId(null)}
               isRuneword={selectedItemIsRuneword}
+              logActionsEnabled={canLogFinds}
               runeTracking={
                 selectedItemIsRuneword
                   ? {
@@ -715,7 +747,7 @@ function ItemsPage() {
         }
         onClick={handleQuickLog}
         aria-label="Log find for selected item"
-        disabled={logFindMutation.isPending || filteredItems.length === 0}
+        disabled={!canLogFinds || logFindMutation.isPending || filteredItems.length === 0}
       >
         {logFindMutation.isPending ? 'Logging…' : 'Quick log'}
       </FloatingActionButton>

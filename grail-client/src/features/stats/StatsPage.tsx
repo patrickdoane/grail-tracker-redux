@@ -14,7 +14,8 @@ import { getApiErrorMessage } from '../../lib/apiClient'
 import { useItemsQuery } from '../items/useItemsQuery'
 import type { Item } from '../items/itemsApi'
 import { useUserItemsQuery } from '../user-items/useUserItemsQuery'
-import { DEFAULT_USER_ID, type UserItem } from '../user-items/userItemsApi'
+import { type UserItem } from '../user-items/userItemsApi'
+import { useUsersQuery } from '../users/useUsersQuery'
 import './StatsPage.css'
 
 type CompletionMetric = {
@@ -159,7 +160,10 @@ function StatsPage() {
   const [dropMetric, setDropMetric] = useState<DropMetricKey>('totalFinds')
 
   const itemsQuery = useItemsQuery()
-  const userItemsQuery = useUserItemsQuery(DEFAULT_USER_ID)
+  const usersQuery = useUsersQuery()
+  const activeUserId = useMemo(() => usersQuery.data?.[0]?.id ?? null, [usersQuery.data])
+  const hasActiveUser = typeof activeUserId === 'number'
+  const userItemsQuery = useUserItemsQuery(activeUserId ?? undefined)
 
   const items = useMemo<Item[]>(() => itemsQuery.data ?? [], [itemsQuery.data])
   const userItems = useMemo<UserItem[]>(() => userItemsQuery.data ?? [], [userItemsQuery.data])
@@ -197,13 +201,19 @@ function StatsPage() {
     ? totalDropsInWindow / sessionsWithinTimeframe.length
     : 0
 
-  const isLoading = itemsQuery.status === 'pending' || userItemsQuery.status === 'pending'
+  const isLoading =
+    itemsQuery.status === 'pending' ||
+    usersQuery.status === 'pending' ||
+    (hasActiveUser && userItemsQuery.status === 'pending')
 
   const errorMessage = (() => {
     if (itemsQuery.status === 'error') {
       return getApiErrorMessage(itemsQuery.error, 'Unable to load grail catalogue right now.')
     }
-    if (userItemsQuery.status === 'error') {
+    if (usersQuery.status === 'error') {
+      return getApiErrorMessage(usersQuery.error, 'Unable to load grail profiles right now.')
+    }
+    if (hasActiveUser && userItemsQuery.status === 'error') {
       return getApiErrorMessage(userItemsQuery.error, 'Unable to load your profile statistics right now.')
     }
     return null
@@ -231,6 +241,15 @@ function StatsPage() {
           <CardHeader>
             <CardTitle>Loading profile statistics…</CardTitle>
             <CardDescription>Fetching your latest grail progress and drop history.</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : !hasActiveUser ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>No grail profile available</CardTitle>
+            <CardDescription>
+              Create a grail hunter user via the API to start logging finds and unlock personalized stats.
+            </CardDescription>
           </CardHeader>
         </Card>
       ) : (

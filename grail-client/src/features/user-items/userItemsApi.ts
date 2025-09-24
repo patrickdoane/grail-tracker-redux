@@ -15,8 +15,6 @@ export type CreateUserItemInput = {
   notes?: string | null
 }
 
-export const DEFAULT_USER_ID = 1
-
 export async function fetchUserItems(userId?: number): Promise<UserItem[]> {
   const searchParams = new URLSearchParams()
   if (typeof userId === 'number') {

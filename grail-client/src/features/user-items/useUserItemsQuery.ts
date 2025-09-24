@@ -5,5 +5,6 @@ export function useUserItemsQuery(userId?: number) {
   return useQuery<UserItem[]>({
     queryKey: typeof userId === 'number' ? userItemsKeys.byUser(userId) : userItemsKeys.all,
     queryFn: () => fetchUserItems(userId),
+    enabled: typeof userId === 'number',
   })
 }

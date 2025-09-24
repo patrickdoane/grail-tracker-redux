@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import {
   Card,
   CardContent,
@@ -10,7 +10,6 @@ import {
   Grid,
   Stack,
 } from '../../components/ui'
-import { classNames } from '../../lib/classNames'
 import './StatsPage.css'
 
 type CompletionMetric = {
@@ -215,6 +214,11 @@ function StatsPage() {
     return DROP_HISTORY.slice(startIndex, endIndex)
   }, [timeframe])
 
+  const selectedDropMetric = useMemo(
+    () => DROP_METRIC_OPTIONS.find((option) => option.key === dropMetric)!,
+    [dropMetric],
+  )
+
   const totalDropsInWindow = sessionsWithinTimeframe.reduce((total, point) => total + point[dropMetric], 0)
   const averageDropsPerRun = sessionsWithinTimeframe.length
     ? totalDropsInWindow / sessionsWithinTimeframe.length
@@ -290,19 +294,15 @@ function StatsPage() {
 
         <Card className="stats-chart-card">
           <CardHeader>
-            <CardTitle>{DROP_METRIC_OPTIONS.find((option) => option.key === dropMetric)?.label}</CardTitle>
-            <CardDescription>
-              {DROP_METRIC_OPTIONS.find((option) => option.key === dropMetric)?.description}
-            </CardDescription>
+            <CardTitle>{selectedDropMetric.label}</CardTitle>
+            <CardDescription>{selectedDropMetric.description}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div
-              className={classNames('chart-area', `chart-area--${dropMetric}`)}
-              role="img"
-              aria-label="Prototype line chart showing finds per run"
-            >
-              <div className="chart-area__sparkline" />
-            </div>
+            <DropMetricChart
+              data={sessionsWithinTimeframe}
+              metric={dropMetric}
+              metricLabel={selectedDropMetric.label}
+            />
             <dl className="chart-insights">
               <div>
                 <dt>Sessions analyzed</dt>
@@ -382,6 +382,214 @@ function StatsPage() {
         </Stack>
       </section>
     </Container>
+  )
+}
+
+const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+})
+
+type DropMetricChartProps = {
+  data: DropHistoryPoint[]
+  metric: DropMetricKey
+  metricLabel: string
+}
+
+function DropMetricChart({ data, metric, metricLabel }: DropMetricChartProps) {
+  const uniqueId = useId().replace(/:/g, '')
+  const chartTitleId = `drop-chart-title-${uniqueId}`
+  const chartDescId = `drop-chart-desc-${uniqueId}`
+  const gradientId = `drop-chart-gradient-${uniqueId}`
+
+  if (data.length === 0) {
+    return (
+      <div className="drop-chart drop-chart--empty">
+        <p>No tracked sessions in this window yet.</p>
+      </div>
+    )
+  }
+
+  const width = 720
+  const height = 320
+  const padding = { top: 24, right: 32, bottom: 56, left: 64 }
+  const baselineY = height - padding.bottom
+  const horizontalRange = width - padding.left - padding.right
+  const verticalRange = height - padding.top - padding.bottom
+
+  const values = data.map((point) => point[metric])
+  const actualMaxValue = Math.max(...values)
+  const maxValue = actualMaxValue === 0 ? 1 : actualMaxValue
+  const pointCount = data.length
+
+  const getX = (index: number) => {
+    if (pointCount === 1) {
+      return padding.left + horizontalRange / 2
+    }
+    return padding.left + (index / (pointCount - 1)) * horizontalRange
+  }
+
+  const getY = (value: number) => baselineY - (value / maxValue) * verticalRange
+
+  const singlePoint = pointCount === 1
+  const linePath = singlePoint
+    ? (() => {
+        const y = getY(values[0])
+        return `M${padding.left} ${y} L${padding.left + horizontalRange} ${y}`
+      })()
+    : data
+        .map((point, index) => {
+          const command = index === 0 ? 'M' : 'L'
+          return `${command}${getX(index)} ${getY(point[metric])}`
+        })
+        .join(' ')
+
+  const areaPath = singlePoint
+    ? (() => {
+        const y = getY(values[0])
+        return `M${padding.left} ${baselineY} L${padding.left} ${y} L${padding.left + horizontalRange} ${y} L${padding.left + horizontalRange} ${baselineY} Z`
+      })()
+    : `M${getX(0)} ${baselineY} ${data
+        .map((point, index) => `L${getX(index)} ${getY(point[metric])}`)
+        .join(' ')} L${getX(pointCount - 1)} ${baselineY} Z`
+
+  const circles = singlePoint
+    ? [
+        {
+          x: padding.left + horizontalRange / 2,
+          y: getY(values[0]),
+          date: data[0].date,
+          value: values[0],
+        },
+      ]
+    : data.map((point, index) => ({
+        x: getX(index),
+        y: getY(point[metric]),
+        date: point.date,
+        value: point[metric],
+      }))
+
+  const yTicks = 4
+  const yTickValues = Array.from({ length: yTicks + 1 }, (_, index) => (maxValue / yTicks) * index)
+
+  const xTickIndexes: number[] = (() => {
+    if (pointCount <= 6) {
+      return data.map((_, index) => index)
+    }
+    const midIndex = Math.round((pointCount - 1) / 2)
+    return Array.from(new Set([0, midIndex, pointCount - 1]))
+  })()
+
+  const formatDate = (value: string) => {
+    const date = new Date(`${value}T00:00:00`)
+    return DATE_FORMATTER.format(date)
+  }
+
+  const rangeLabel = `${formatDate(data[0].date)} – ${formatDate(data[pointCount - 1].date)}`
+
+  const formatNumber = (value: number) => {
+    if (value === 0) {
+      return '0'
+    }
+    if (value >= 10 || Number.isInteger(value)) {
+      return value.toFixed(0)
+    }
+    if (value >= 1) {
+      return value.toFixed(1)
+    }
+    return value.toFixed(2)
+  }
+
+  const axisMaxLabel = formatNumber(actualMaxValue)
+
+  return (
+    <div className="drop-chart">
+      <div className="drop-chart__surface">
+        <svg
+          className="drop-chart__svg"
+          viewBox={`0 0 ${width} ${height}`}
+          role="img"
+          aria-labelledby={`${chartTitleId} ${chartDescId}`}
+        >
+          <title id={chartTitleId}>{`${metricLabel} per session`}</title>
+          <desc id={chartDescId}>{`Weekly totals from ${rangeLabel}. Peak value ${axisMaxLabel}.`}</desc>
+          <defs>
+            <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="#facc15" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="#facc15" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+
+          {yTickValues.map((tickValue) => {
+            const y = getY(tickValue)
+            return (
+              <g key={`y-${tickValue}`}>
+                <line
+                  className="drop-chart__grid-line"
+                  x1={padding.left}
+                  x2={padding.left + horizontalRange}
+                  y1={y}
+                  y2={y}
+                />
+                <text
+                  className="drop-chart__axis-label"
+                  x={padding.left - 12}
+                  y={y}
+                  alignmentBaseline="middle"
+                  textAnchor="end"
+                >
+                  {formatNumber(tickValue)}
+                </text>
+              </g>
+            )
+          })}
+
+          <line
+            className="drop-chart__axis"
+            x1={padding.left}
+            x2={padding.left}
+            y1={padding.top}
+            y2={baselineY}
+          />
+          <line
+            className="drop-chart__axis"
+            x1={padding.left}
+            x2={padding.left + horizontalRange}
+            y1={baselineY}
+            y2={baselineY}
+          />
+
+          <path className="drop-chart__area" d={areaPath} fill={`url(#${gradientId})`} />
+          <path className="drop-chart__line" d={linePath} />
+
+          {circles.map((point) => (
+            <g key={point.date}>
+              <circle className="drop-chart__point" cx={point.x} cy={point.y} r={6}>
+                <title>
+                  {`${formatDate(point.date)}: ${point.value} ${metricLabel.toLowerCase()}`}
+                </title>
+              </circle>
+            </g>
+          ))}
+
+          {xTickIndexes.map((index) => {
+            const x = getX(index)
+            return (
+              <text
+                key={`x-${data[index].date}`}
+                className="drop-chart__axis-label"
+                x={x}
+                y={baselineY + 24}
+                textAnchor="middle"
+              >
+                {formatDate(data[index].date)}
+              </text>
+            )
+          })}
+        </svg>
+      </div>
+      <p className="drop-chart__caption">Weekly totals from {rangeLabel}.</p>
+    </div>
   )
 }
 

@@ -4,11 +4,13 @@ import com.d2.grail_server.dto.UserRequest;
 import com.d2.grail_server.dto.UserResponse;
 import com.d2.grail_server.exception.ConflictException;
 import com.d2.grail_server.exception.ResourceNotFoundException;
+import com.d2.grail_server.model.Role;
 import com.d2.grail_server.model.User;
 import com.d2.grail_server.repository.UserRepository;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,9 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
   private final UserRepository userRepository;
+  private final PasswordEncoder passwordEncoder;
 
-  public UserService(UserRepository userRepository) {
+  public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
     this.userRepository = userRepository;
+    this.passwordEncoder = passwordEncoder;
   }
 
   @Transactional(readOnly = true)
@@ -81,10 +85,16 @@ public class UserService {
   private void applyRequest(User user, UserRequest request) {
     user.setUsername(request.getUsername());
     user.setEmail(request.getEmail());
-    user.setPasswordHash(request.getPasswordHash());
+    if (request.getPassword() != null && !request.getPassword().isBlank()) {
+      user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+    }
+    if (request.getRole() != null && !request.getRole().isBlank()) {
+      user.setRole(Role.valueOf(request.getRole().toUpperCase()));
+    }
   }
 
   private UserResponse toResponse(User user) {
-    return new UserResponse(user.getId(), user.getUsername(), user.getEmail(), user.getCreatedAt());
+    return new UserResponse(
+        user.getId(), user.getUsername(), user.getEmail(), user.getCreatedAt(), user.getRole().name());
   }
 }

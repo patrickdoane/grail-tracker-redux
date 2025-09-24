@@ -2,10 +2,9 @@ package com.d2.grail_server.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-public class UserRequest {
+public class RegisterRequest {
   @NotBlank
   @Size(max = 50)
   private String username;
@@ -18,10 +17,6 @@ public class UserRequest {
   @NotBlank
   @Size(min = 8, max = 255)
   private String password;
-
-  @Size(max = 20)
-  @Pattern(regexp = "(?i)user|admin", message = "Role must be USER or ADMIN")
-  private String role;
 
   public String getUsername() {
     return username;
@@ -45,13 +40,5 @@ public class UserRequest {
 
   public void setPassword(String password) {
     this.password = password;
-  }
-
-  public String getRole() {
-    return role;
-  }
-
-  public void setRole(String role) {
-    this.role = role;
   }
 }

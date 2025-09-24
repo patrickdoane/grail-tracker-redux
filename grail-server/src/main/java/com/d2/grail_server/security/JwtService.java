@@ -8,6 +8,7 @@ import io.jsonwebtoken.security.Keys;
 import java.security.Key;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
 import java.util.function.Function;
@@ -33,7 +34,7 @@ public class JwtService {
   }
 
   public String generateToken(UserDetails userDetails) {
-    return generateToken(Map.of(), userDetails);
+    return generateToken(Collections.emptyMap(), userDetails);
   }
 
   public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {

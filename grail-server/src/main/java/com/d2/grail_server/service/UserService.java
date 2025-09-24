@@ -1,25 +1,34 @@
 package com.d2.grail_server.service;
 
+import com.d2.grail_server.dto.RegisterRequest;
 import com.d2.grail_server.dto.UserRequest;
 import com.d2.grail_server.dto.UserResponse;
 import com.d2.grail_server.exception.ConflictException;
 import com.d2.grail_server.exception.ResourceNotFoundException;
 import com.d2.grail_server.model.User;
+import com.d2.grail_server.model.UserRole;
 import com.d2.grail_server.repository.UserRepository;
+import com.d2.grail_server.security.UserPrincipal;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Service
 @Transactional
-public class UserService {
+public class UserService implements UserDetailsService {
 
   private final UserRepository userRepository;
+  private final PasswordEncoder passwordEncoder;
 
-  public UserService(UserRepository userRepository) {
+  public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
     this.userRepository = userRepository;
+    this.passwordEncoder = passwordEncoder;
   }
 
   @Transactional(readOnly = true)
@@ -36,6 +45,9 @@ public class UserService {
   public UserResponse createUser(UserRequest request) {
     ensureUsernameAvailable(request.getUsername(), null);
     ensureEmailAvailable(request.getEmail(), null);
+    if (request.getPassword() == null || request.getPassword().isBlank()) {
+      throw new IllegalArgumentException("Password is required when creating a user");
+    }
     User user = new User();
     applyRequest(user, request);
     User saved = userRepository.save(user);
@@ -78,13 +90,45 @@ public class UserService {
     }
   }
 
+  public UserResponse registerUser(RegisterRequest request) {
+    ensureUsernameAvailable(request.getUsername(), null);
+    ensureEmailAvailable(request.getEmail(), null);
+    User user = new User();
+    user.setUsername(request.getUsername());
+    user.setEmail(request.getEmail());
+    user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+    user.setRole(UserRole.USER);
+    User saved = userRepository.save(user);
+    return toResponse(saved);
+  }
+
   private void applyRequest(User user, UserRequest request) {
     user.setUsername(request.getUsername());
     user.setEmail(request.getEmail());
-    user.setPasswordHash(request.getPasswordHash());
+    if (request.getPassword() != null && !request.getPassword().isBlank()) {
+      user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+    }
+    if (request.getRole() != null) {
+      user.setRole(request.getRole());
+    }
   }
 
   private UserResponse toResponse(User user) {
-    return new UserResponse(user.getId(), user.getUsername(), user.getEmail(), user.getCreatedAt());
+    return new UserResponse(
+        user.getId(), user.getUsername(), user.getEmail(), user.getCreatedAt(), user.getRole());
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+    User user =
+        userRepository
+            .findByUsername(username)
+            .or(() -> userRepository.findByEmail(username))
+            .orElseThrow(
+                () ->
+                    new UsernameNotFoundException(
+                        String.format("User with username or email '%s' not found", username)));
+    return UserPrincipal.fromUser(user);
   }
 }

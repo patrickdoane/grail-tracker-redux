@@ -39,6 +39,11 @@ public class RestExceptionHandler {
     return buildResponse(HttpStatus.BAD_REQUEST, "Validation failed", fieldErrors);
   }
 
+  @ExceptionHandler(IllegalArgumentException.class)
+  public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+    return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+  }
+
   @ExceptionHandler(Exception.class)
   public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
     return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);

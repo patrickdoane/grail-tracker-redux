@@ -69,15 +69,23 @@ import { Button, Card, Container, Stack } from '../components/ui'
 
 Available pieces include Buttons, Cards, layout helpers (`Container`, `Stack`, `Grid`), FilterChips, StatusBadges, the ProgressRing, and a FloatingActionButton. See `docs/ui-component-library.md` for practical guidance and best practices.
 
-## API Endpoints
+## Authentication & API Endpoints
 
-All routes live under the `/api` prefix. Sample payloads are JSON.
+The API now requires JWT bearer tokens for any write. Configure a Base64-encoded signing key via `app.security.jwt-secret` (override the default in `grail-server/env.properties`).
 
-- `GET /api/items` – list items; `POST /api/items` creates an item; `PUT /api/items/{id}` updates; `DELETE /api/items/{id}` removes.
-- `GET /api/item-properties?itemId={id}` – list properties (optionally filtered); `POST /api/item-properties` adds a property for an item.
-- `GET /api/item-sources?itemId={id}` – list external sources; `POST /api/item-sources` adds a source for an item.
-- `GET /api/users` – list users; `POST /api/users` creates a user (expects `username`, `email`, `passwordHash`).
-- `GET /api/user-items?userId={id}` – list finds for a user; `POST /api/user-items` logs a new find with optional `foundAt` and `notes`.
+- `POST /api/auth/register` – create an account (`username`, `email`, `password`). Returns an access token and the user profile.
+- `POST /api/auth/login` – authenticate with username (or email) + password. Returns an access token and the authenticated user.
+- `GET /api/auth/me` – return the current user when a valid `Authorization: Bearer <token>` header is supplied.
+
+All non-GET routes expect `Authorization: Bearer <token>`. Only admins (`role=ADMIN`) may call the `/api/users` CRUD endpoints; other protected routes accept any authenticated user.
+
+Core resource routes remain under `/api` with JSON payloads:
+
+- `GET /api/items` – list items; `POST /api/items` creates an item; `PUT /api/items/{id}` updates; `DELETE /api/items/{id}` removes (auth required for writes).
+- `GET /api/item-properties?itemId={id}` – list properties (optionally filtered); `POST /api/item-properties` adds a property for an item (auth required).
+- `GET /api/item-sources?itemId={id}` – list external sources; `POST /api/item-sources` adds a source for an item (auth required).
+- `GET /api/users` – list users (admin only); `POST /api/users` creates a user (admin only, expects `username`, `email`, `password`, optional `role`).
+- `GET /api/user-items?userId={id}` – list finds for a user; `POST /api/user-items` logs a new find with optional `foundAt` and `notes` (auth required).
 
 All endpoints support `GET /{id}` for lookups and `DELETE /{id}` for removal. Validation errors return HTTP 400 with field-level messages, missing resources return HTTP 404, and duplicate usernames/emails return HTTP 409.
 

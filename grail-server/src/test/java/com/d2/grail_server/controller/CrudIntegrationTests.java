@@ -8,14 +8,19 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.d2.grail_server.dto.AuthRequest;
+import com.d2.grail_server.dto.AuthResponse;
 import com.d2.grail_server.dto.ItemNoteRequest;
 import com.d2.grail_server.dto.ItemPropertyRequest;
 import com.d2.grail_server.dto.ItemRequest;
 import com.d2.grail_server.dto.ItemResponse;
 import com.d2.grail_server.dto.ItemSourceRequest;
+import com.d2.grail_server.dto.RegisterRequest;
 import com.d2.grail_server.dto.UserItemRequest;
 import com.d2.grail_server.dto.UserRequest;
 import com.d2.grail_server.dto.UserResponse;
+import com.d2.grail_server.model.User;
+import com.d2.grail_server.model.UserRole;
 import com.d2.grail_server.repository.ItemNoteRepository;
 import com.d2.grail_server.repository.ItemPropertyRepository;
 import com.d2.grail_server.repository.ItemRepository;
@@ -31,6 +36,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -49,15 +55,106 @@ class CrudIntegrationTests {
   @Autowired private ItemSourceRepository itemSourceRepository;
   @Autowired private ItemRepository itemRepository;
   @Autowired private UserRepository userRepository;
+  @Autowired private PasswordEncoder passwordEncoder;
+
+  private String adminToken;
+
+  private String bearerToken() {
+    return "Bearer " + adminToken;
+  }
 
   @BeforeEach
-  void cleanDatabase() {
+  void cleanDatabase() throws Exception {
     userItemRepository.deleteAll();
     itemNoteRepository.deleteAll();
     itemPropertyRepository.deleteAll();
     itemSourceRepository.deleteAll();
     itemRepository.deleteAll();
     userRepository.deleteAll();
+
+    User admin = new User();
+    admin.setUsername("admin");
+    admin.setEmail("admin@example.com");
+    admin.setPasswordHash(passwordEncoder.encode("AdminPass123!"));
+    admin.setRole(UserRole.ADMIN);
+    userRepository.save(admin);
+
+    AuthRequest loginRequest = new AuthRequest();
+    loginRequest.setUsername("admin");
+    loginRequest.setPassword("AdminPass123!");
+
+    MvcResult loginResult =
+        mockMvc
+            .perform(
+                post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(loginRequest)))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    AuthResponse authResponse =
+        objectMapper.readValue(loginResult.getResponse().getContentAsString(), AuthResponse.class);
+    adminToken = authResponse.getToken();
+  }
+
+  @Test
+  void requiresAuthenticationForProtectedWrites() throws Exception {
+    ItemRequest request = new ItemRequest();
+    request.setName("Test Item");
+
+    mockMvc
+        .perform(
+            post("/api/items")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void rejectsInvalidBearerToken() throws Exception {
+    ItemRequest request = new ItemRequest();
+    request.setName("Another Item");
+
+    mockMvc
+        .perform(
+            post("/api/items")
+                .header("Authorization", "Bearer not-a-real-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void nonAdminCannotManageUsers() throws Exception {
+    RegisterRequest registerRequest = new RegisterRequest();
+    registerRequest.setUsername("player_one");
+    registerRequest.setEmail("player_one@example.com");
+    registerRequest.setPassword("UserPass123!");
+
+    MvcResult registerResult =
+        mockMvc
+            .perform(
+                post("/api/auth/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(registerRequest)))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+    AuthResponse registerAuth =
+        objectMapper.readValue(registerResult.getResponse().getContentAsString(), AuthResponse.class);
+
+    UserRequest userRequest = new UserRequest();
+    userRequest.setUsername("another_user");
+    userRequest.setEmail("another@example.com");
+    userRequest.setPassword("SecurePass456!");
+
+    mockMvc
+        .perform(
+            post("/api/users")
+                .header("Authorization", "Bearer " + registerAuth.getToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(userRequest)))
+        .andExpect(status().isForbidden());
   }
 
   @Test
@@ -74,6 +171,7 @@ class CrudIntegrationTests {
         mockMvc
             .perform(
                 post("/api/items")
+                    .header("Authorization", bearerToken())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(createRequest)))
             .andExpect(status().isCreated())
@@ -98,6 +196,7 @@ class CrudIntegrationTests {
     mockMvc
         .perform(
             put("/api/items/{id}", itemId)
+                .header("Authorization", bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(updateRequest)))
         .andExpect(status().isOk())
@@ -109,7 +208,9 @@ class CrudIntegrationTests {
         objectMapper.readValue(listResult.getResponse().getContentAsString(), ItemResponse[].class);
     assertThat(items).hasSize(1);
 
-    mockMvc.perform(delete("/api/items/{id}", itemId)).andExpect(status().isNoContent());
+    mockMvc
+        .perform(delete("/api/items/{id}", itemId).header("Authorization", bearerToken()))
+        .andExpect(status().isNoContent());
 
     mockMvc.perform(get("/api/items/{id}", itemId)).andExpect(status().isNotFound());
   }
@@ -127,6 +228,7 @@ class CrudIntegrationTests {
         mockMvc
             .perform(
                 post("/api/item-properties")
+                    .header("Authorization", bearerToken())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(propertyRequest)))
             .andExpect(status().isCreated())
@@ -151,6 +253,7 @@ class CrudIntegrationTests {
         mockMvc
             .perform(
                 post("/api/item-sources")
+                    .header("Authorization", bearerToken())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(sourceRequest)))
             .andExpect(status().isCreated())
@@ -162,9 +265,14 @@ class CrudIntegrationTests {
     Long sourceId = ((Number) source.get("id")).longValue();
 
     mockMvc
-        .perform(delete("/api/item-properties/{id}", propertyId))
+        .perform(
+            delete("/api/item-properties/{id}", propertyId)
+                .header("Authorization", bearerToken()))
         .andExpect(status().isNoContent());
-    mockMvc.perform(delete("/api/item-sources/{id}", sourceId)).andExpect(status().isNoContent());
+    mockMvc
+        .perform(
+            delete("/api/item-sources/{id}", sourceId).header("Authorization", bearerToken()))
+        .andExpect(status().isNoContent());
   }
 
   @Test
@@ -172,12 +280,13 @@ class CrudIntegrationTests {
     UserRequest userRequest = new UserRequest();
     userRequest.setUsername("grail_runner");
     userRequest.setEmail("runner@example.com");
-    userRequest.setPasswordHash("hashed-password");
+    userRequest.setPassword("SecurePass123!");
 
     MvcResult userResult =
         mockMvc
             .perform(
                 post("/api/users")
+                    .header("Authorization", bearerToken())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(userRequest)))
             .andExpect(status().isCreated())
@@ -198,6 +307,7 @@ class CrudIntegrationTests {
         mockMvc
             .perform(
                 post("/api/user-items")
+                    .header("Authorization", bearerToken())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(createRequest)))
             .andExpect(status().isCreated())
@@ -222,13 +332,18 @@ class CrudIntegrationTests {
     mockMvc
         .perform(
             put("/api/user-items/{id}", userItemId)
+                .header("Authorization", bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(updateRequest)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.notes").value("Updated note"));
 
-    mockMvc.perform(delete("/api/user-items/{id}", userItemId)).andExpect(status().isNoContent());
-    mockMvc.perform(delete("/api/users/{id}", userId)).andExpect(status().isNoContent());
+    mockMvc
+        .perform(delete("/api/user-items/{id}", userItemId).header("Authorization", bearerToken()))
+        .andExpect(status().isNoContent());
+    mockMvc
+        .perform(delete("/api/users/{id}", userId).header("Authorization", bearerToken()))
+        .andExpect(status().isNoContent());
   }
 
   @Test
@@ -243,6 +358,7 @@ class CrudIntegrationTests {
         mockMvc
             .perform(
                 post("/api/items/{itemId}/notes", itemId)
+                    .header("Authorization", bearerToken())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(noteRequest)))
             .andExpect(status().isCreated())
@@ -279,6 +395,7 @@ class CrudIntegrationTests {
         mockMvc
             .perform(
                 post("/api/items")
+                    .header("Authorization", bearerToken())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isCreated())

@@ -12,12 +12,12 @@ import com.d2.grail_server.security.UserPrincipal;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
@@ -40,6 +40,17 @@ public class UserService implements UserDetailsService {
   public UserResponse getUser(Long id) {
     User user = findUser(id);
     return toResponse(user);
+  }
+
+  @Transactional(readOnly = true)
+  public UserResponse getUserByUsernameOrEmail(String usernameOrEmail) {
+    return findByUsernameOrEmail(usernameOrEmail)
+        .map(this::toResponse)
+        .orElseThrow(
+            () ->
+                new ResourceNotFoundException(
+                    String.format(
+                        "User with username or email '%s' not found", usernameOrEmail)));
   }
 
   public UserResponse createUser(UserRequest request) {
@@ -74,6 +85,14 @@ public class UserService implements UserDetailsService {
     return userRepository
         .findById(id)
         .orElseThrow(() -> new ResourceNotFoundException(String.format("User %d not found", id)));
+  }
+
+  private Optional<User> findByUsernameOrEmail(String usernameOrEmail) {
+    if (usernameOrEmail == null || usernameOrEmail.isBlank()) {
+      return Optional.empty();
+    }
+    return userRepository.findByUsername(usernameOrEmail)
+        .or(() -> userRepository.findByEmail(usernameOrEmail));
   }
 
   private void ensureUsernameAvailable(String username, Long excludingId) {
@@ -121,14 +140,11 @@ public class UserService implements UserDetailsService {
   @Override
   @Transactional(readOnly = true)
   public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-    User user =
-        userRepository
-            .findByUsername(username)
-            .or(() -> userRepository.findByEmail(username))
-            .orElseThrow(
-                () ->
-                    new UsernameNotFoundException(
-                        String.format("User with username or email '%s' not found", username)));
-    return UserPrincipal.fromUser(user);
+    return findByUsernameOrEmail(username)
+        .map(UserPrincipal::fromUser)
+        .orElseThrow(
+            () ->
+                new UsernameNotFoundException(
+                    String.format("User with username or email '%s' not found", username)));
   }
 }

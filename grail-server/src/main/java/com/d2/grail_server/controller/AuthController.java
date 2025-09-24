@@ -4,8 +4,8 @@ import com.d2.grail_server.dto.AuthRequest;
 import com.d2.grail_server.dto.AuthResponse;
 import com.d2.grail_server.dto.RegisterRequest;
 import com.d2.grail_server.dto.UserResponse;
-import com.d2.grail_server.security.UserPrincipal;
 import com.d2.grail_server.security.JwtService;
+import com.d2.grail_server.security.UserPrincipal;
 import com.d2.grail_server.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -41,10 +41,9 @@ public class AuthController {
     Authentication authentication =
         authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
-    UserPrincipal principal =
-        (UserPrincipal) userService.loadUserByUsername(authentication.getName());
+    UserPrincipal principal = resolvePrincipal(authentication);
     String token = jwtService.generateToken(principal);
-    UserResponse user = userService.getUser(principal.getId());
+    UserResponse user = lookupUserForPrincipal(principal);
     return new AuthResponse(token, user);
   }
 
@@ -63,5 +62,25 @@ public class AuthController {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }
     return ResponseEntity.ok(userService.getUser(principal.getId()));
+  }
+
+  private UserPrincipal resolvePrincipal(Authentication authentication) {
+    Object authenticated = authentication.getPrincipal();
+    if (authenticated instanceof UserPrincipal userPrincipal) {
+      return userPrincipal;
+    }
+    Object reloaded = userService.loadUserByUsername(authentication.getName());
+    if (reloaded instanceof UserPrincipal userPrincipal) {
+      return userPrincipal;
+    }
+    throw new IllegalStateException("Authenticated principal could not be resolved");
+  }
+
+  private UserResponse lookupUserForPrincipal(UserPrincipal principal) {
+    Long userId = principal.getId();
+    if (userId != null) {
+      return userService.getUser(userId);
+    }
+    return userService.getUserByUsernameOrEmail(principal.getUsername());
   }
 }

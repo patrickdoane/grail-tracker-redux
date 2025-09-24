@@ -3,7 +3,7 @@ import { fetchUserItems, userItemsKeys, type UserItem } from './userItemsApi'
 
 export function useUserItemsQuery(userId?: number) {
   return useQuery<UserItem[]>({
-    queryKey: userId ? [...userItemsKeys.all, userId] : userItemsKeys.all,
+    queryKey: typeof userId === 'number' ? userItemsKeys.byUser(userId) : userItemsKeys.all,
     queryFn: () => fetchUserItems(userId),
   })
 }

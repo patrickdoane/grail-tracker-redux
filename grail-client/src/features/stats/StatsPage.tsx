@@ -14,7 +14,7 @@ import { getApiErrorMessage } from '../../lib/apiClient'
 import { useItemsQuery } from '../items/useItemsQuery'
 import type { Item } from '../items/itemsApi'
 import { useUserItemsQuery } from '../user-items/useUserItemsQuery'
-import type { UserItem } from '../user-items/userItemsApi'
+import { DEFAULT_USER_ID, type UserItem } from '../user-items/userItemsApi'
 import './StatsPage.css'
 
 type CompletionMetric = {
@@ -153,8 +153,6 @@ const TIMEFRAME_OPTIONS: { label: string; value: Timeframe }[] = [
   { label: 'Last 30 days', value: '30d' },
   { label: 'Last 90 days', value: '90d' },
 ]
-
-const DEFAULT_USER_ID = 1
 
 function StatsPage() {
   const [timeframe, setTimeframe] = useState<Timeframe>('30d')

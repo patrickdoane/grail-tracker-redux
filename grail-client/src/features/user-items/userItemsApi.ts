@@ -8,6 +8,15 @@ export type UserItem = {
   notes: string | null
 }
 
+export type CreateUserItemInput = {
+  userId: number
+  itemId: number
+  foundAt?: string
+  notes?: string | null
+}
+
+export const DEFAULT_USER_ID = 1
+
 export async function fetchUserItems(userId?: number): Promise<UserItem[]> {
   const searchParams = new URLSearchParams()
   if (typeof userId === 'number') {
@@ -18,6 +27,20 @@ export async function fetchUserItems(userId?: number): Promise<UserItem[]> {
   return apiRequest<UserItem[]>(path)
 }
 
+export async function createUserItem(input: CreateUserItemInput): Promise<UserItem> {
+  return apiRequest<UserItem>('/user-items', {
+    method: 'POST',
+    body: input,
+  })
+}
+
+export async function deleteUserItem(id: number): Promise<void> {
+  await apiRequest(`/user-items/${id}`, {
+    method: 'DELETE',
+  })
+}
+
 export const userItemsKeys = {
   all: ['user-items'] as const,
+  byUser: (userId: number) => [...userItemsKeys.all, userId] as const,
 }

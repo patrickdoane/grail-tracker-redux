@@ -5,7 +5,7 @@ import {
   useState,
   type ChangeEvent,
 } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Button,
   Card,
@@ -30,6 +30,14 @@ import type { Item } from './itemsApi'
 import ItemDetailPanel from './ItemDetailPanel'
 import { normalizeRuneName, runeNamesMatch } from './runeUtils'
 import './ItemsPage.css'
+import { useUserItemsQuery } from '../user-items/useUserItemsQuery'
+import {
+  DEFAULT_USER_ID,
+  createUserItem,
+  deleteUserItem,
+  userItemsKeys,
+  type UserItem,
+} from '../user-items/userItemsApi'
 
 const CATALOGUE_ESTIMATE = 500
 
@@ -50,9 +58,11 @@ type LogFindVariables = {
 
 type LogFindContext = {
   previous: Set<number>
+  previousRecords: Map<number, UserItem>
 }
 
 function ItemsPage() {
+  const queryClient = useQueryClient()
   const [rarityFilter, setRarityFilter] = useState<RarityFilter>('all')
   const [qualityFilter, setQualityFilter] = useState<RarityFilter>('all')
   const [versionFilter, setVersionFilter] = useState<RarityFilter>('all')
@@ -60,6 +70,7 @@ function ItemsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
   const [foundItemIds, setFoundItemIds] = useState<Set<number>>(() => new Set())
+  const [userItemRecords, setUserItemRecords] = useState<Map<number, UserItem>>(() => new Map())
   const [runewordRunesOwned, setRunewordRunesOwned] = useState<Map<number, Set<string>>>(() => {
     if (typeof window === 'undefined') {
       return new Map()
@@ -91,7 +102,25 @@ function ItemsPage() {
   })
 
   const itemsQuery = useItemsQuery()
+  const userItemsQuery = useUserItemsQuery(DEFAULT_USER_ID)
   const items = useMemo<Item[]>(() => itemsQuery.data ?? [], [itemsQuery.data])
+  const userItems = useMemo<UserItem[]>(() => userItemsQuery.data ?? [], [userItemsQuery.data])
+  useEffect(() => {
+    setUserItemRecords(() => {
+      const next = new Map<number, UserItem>()
+      userItems.forEach((entry) => {
+        next.set(entry.itemId, entry)
+      })
+      return next
+    })
+    setFoundItemIds(() => {
+      const next = new Set<number>()
+      userItems.forEach((entry) => {
+        next.add(entry.itemId)
+      })
+      return next
+    })
+  }, [userItems])
 
   const rarityOptions = useMemo(() => {
     const values = new Set<string>()
@@ -200,13 +229,43 @@ function ItemsPage() {
     }
   }
 
-  const logFindMutation = useMutation<number, Error, LogFindVariables, LogFindContext>({
-    mutationFn: async ({ itemId }) => {
-      await new Promise((resolve) => setTimeout(resolve, 350))
-      return itemId
+  const logFindMutation = useMutation<UserItem | null, Error, LogFindVariables, LogFindContext>({
+    mutationFn: async ({ itemId, found }) => {
+      if (found) {
+        return createUserItem({
+          userId: DEFAULT_USER_ID,
+          itemId,
+          foundAt: new Date().toISOString(),
+        })
+      }
+
+      const existing = userItemRecords.get(itemId)
+      if (!existing || existing.id <= 0) {
+        throw new Error('No logged find to remove for this item yet.')
+      }
+      await deleteUserItem(existing.id)
+      return null
     },
     onMutate: (variables) => {
       const previous = new Set(foundItemIds)
+      const previousRecords = new Map(userItemRecords)
+      const timestamp = new Date().toISOString()
+      setUserItemRecords((prev) => {
+        const next = new Map(prev)
+        if (variables.found) {
+          const placeholderId = -Date.now()
+          next.set(variables.itemId, {
+            id: placeholderId,
+            userId: DEFAULT_USER_ID,
+            itemId: variables.itemId,
+            foundAt: timestamp,
+            notes: null,
+          })
+        } else {
+          next.delete(variables.itemId)
+        }
+        return next
+      })
       setFoundItemIds((prev) => {
         const next = new Set(prev)
         if (variables.found) {
@@ -216,12 +275,34 @@ function ItemsPage() {
         }
         return next
       })
-      return { previous }
+      return { previous, previousRecords }
     },
     onError: (_error, _variables, context) => {
       if (context?.previous) {
         setFoundItemIds(new Set(context.previous))
       }
+      if (context?.previousRecords) {
+        setUserItemRecords(new Map(context.previousRecords))
+      }
+    },
+    onSuccess: (data, variables) => {
+      if (variables.found && data) {
+        setUserItemRecords((prev) => {
+          const next = new Map(prev)
+          next.set(variables.itemId, data)
+          return next
+        })
+      }
+      if (!variables.found) {
+        setUserItemRecords((prev) => {
+          const next = new Map(prev)
+          next.delete(variables.itemId)
+          return next
+        })
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: userItemsKeys.byUser(DEFAULT_USER_ID) })
     },
   })
 
@@ -233,8 +314,14 @@ function ItemsPage() {
     Boolean(selectedItem) && logFindMutation.isPending && pendingItemId === selectedItem?.id
 
   const statusText = (() => {
-    if (itemsQuery.status === 'pending') {
-      return 'Fetching grail items from the server…'
+    if (itemsQuery.status === 'pending' || userItemsQuery.status === 'pending') {
+      return 'Fetching grail items and your logged finds from the server…'
+    }
+    if (userItemsQuery.status === 'error') {
+      return 'Unable to refresh your logged finds. Progress indicators may be stale.'
+    }
+    if (userItemsQuery.isFetching && userItemsQuery.status === 'success') {
+      return `Refreshing ${userItems.length} logged finds…`
     }
     if (itemsQuery.isFetching && itemsQuery.status === 'success') {
       return `Refreshing ${items.length} loaded items…`
@@ -474,6 +561,41 @@ function ItemsPage() {
                 <CardDescription>
                   The grail collection is empty. Seed the database or import a saved catalogue to begin.
                 </CardDescription>
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
+
+        {userItemsQuery.status === 'pending' && (
+          <Card className="items-page__status-card">
+            <CardContent>
+              <Stack gap="xs">
+                <StatusBadge variant="info">Syncing progress</StatusBadge>
+                <CardDescription>
+                  Loading your logged finds so we can highlight collected items.
+                </CardDescription>
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
+
+        {userItemsQuery.status === 'error' && (
+          <Card className="items-page__status-card">
+            <CardContent>
+              <Stack gap="sm">
+                <Stack direction="horizontal" gap="sm" align="center">
+                  <StatusBadge variant="danger">Sync failed</StatusBadge>
+                  <span className="items-page__error-message">
+                    {getApiErrorMessage(userItemsQuery.error)}
+                  </span>
+                </Stack>
+                <CardDescription>
+                  Progress indicators may be outdated until we reconnect. Ensure the backend is running and try
+                  again.
+                </CardDescription>
+                <Button variant="secondary" onClick={() => userItemsQuery.refetch()}>
+                  Retry syncing
+                </Button>
               </Stack>
             </CardContent>
           </Card>

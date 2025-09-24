@@ -71,6 +71,9 @@
   - Prototype drop-source heatmap and act progression timelines (lightweight SVG)
   - Provide export/share controls for progress summaries (image + CSV)
   - Prioritize prototype to drive metrics requirements
+  - Replace placeholder drop activity visualization with a real chart wired to the selected metric
+  - Feed cards and charts from live profile statistics instead of hard-coded demo data
+  - Author dynamic insight copy that highlights notable trends or outliers from the player's recent runs
 ☐ Refresh settings & data management
   - Organize account, appearance, data, and onboarding sections with inline forms
   - Add theme toggles (dark, light, high-contrast) and sync status indicators

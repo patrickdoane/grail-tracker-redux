@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import AppShell from './components/AppShell'
 import ItemsPage from './features/items/ItemsPage'
+import StatsPage from './features/stats/StatsPage'
 import SetsRunewordsPage from './features/sets/SetsRunewordsPage'
 import './App.css'
 
@@ -23,12 +24,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'stats',
-        element: (
-          <ComingSoon
-            title="Stats & Insights"
-            description="Visualize drop trends and collection milestones with charts and heatmaps."
-          />
-        ),
+        element: <StatsPage />,
       },
       {
         path: 'settings',

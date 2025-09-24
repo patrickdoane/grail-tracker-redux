@@ -70,10 +70,17 @@
   - Display completion snapshot and rarity breakdown cards with responsive charts
   - Prototype drop-source heatmap and act progression timelines (lightweight SVG)
   - Provide export/share controls for progress summaries (image + CSV)
+  - Prioritize prototype to drive metrics requirements
 ☐ Refresh settings & data management
   - Organize account, appearance, data, and onboarding sections with inline forms
   - Add theme toggles (dark, light, high-contrast) and sync status indicators
   - Outline import/export flows aligned with backend endpoints and offline safeguards
+  - Prototype shell early to host future auth + data controls
+☐ Establish user authentication & authorization
+  - Evaluate options (Spring Security vs. managed IdP)
+  - Define user model and persistence
+  - Add signup/login/logout flows to client shell
+  - Gate server-side rune ownership persistence on auth rollout
 ☐ Document database setup and API usage
   - Expand README with Postgres install, migrations/seed instructions, and env guidance
   - Add sample API requests covering CRUD flows and filtering

@@ -24,6 +24,7 @@ import com.d2.grail_server.repository.ItemRepository;
 import com.d2.grail_server.repository.ItemSourceRepository;
 import com.d2.grail_server.repository.UserItemRepository;
 import com.d2.grail_server.repository.UserRepository;
+import com.d2.grail_server.service.AuthService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -52,6 +53,7 @@ class CrudIntegrationTests {
   @Autowired private ItemSourceRepository itemSourceRepository;
   @Autowired private ItemRepository itemRepository;
   @Autowired private UserRepository userRepository;
+  @Autowired private AuthService authService;
 
   private String authToken;
 
@@ -321,17 +323,7 @@ class CrudIntegrationTests {
     request.setEmail(username + "@example.com");
     request.setPassword("StrongP@ssw0rd!");
 
-    MvcResult result =
-        mockMvc
-            .perform(
-                post("/api/auth/register")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(request)))
-            .andExpect(status().isCreated())
-            .andReturn();
-
-    AuthResponse response =
-        objectMapper.readValue(result.getResponse().getContentAsString(), AuthResponse.class);
+    AuthResponse response = authService.register(request);
     return response.getToken();
   }
 

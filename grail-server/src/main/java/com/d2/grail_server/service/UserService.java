@@ -88,13 +88,17 @@ public class UserService {
     if (request.getPassword() != null && !request.getPassword().isBlank()) {
       user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
     }
+
     if (request.getRole() != null && !request.getRole().isBlank()) {
       user.setRole(Role.valueOf(request.getRole().toUpperCase()));
+    } else if (user.getRole() == null) {
+      user.setRole(Role.USER);
     }
   }
 
   private UserResponse toResponse(User user) {
+    Role role = user.getRole() != null ? user.getRole() : Role.USER;
     return new UserResponse(
-        user.getId(), user.getUsername(), user.getEmail(), user.getCreatedAt(), user.getRole().name());
+        user.getId(), user.getUsername(), user.getEmail(), user.getCreatedAt(), role.name());
   }
 }

@@ -25,6 +25,7 @@ import {
   type ItemSource,
   type ItemVariant,
 } from './itemsApi'
+import { normalizeRuneName } from './runeUtils'
 import './ItemDetailPanel.css'
 
 type SectionId = 'overview' | 'sources' | 'variants' | 'notes'
@@ -71,6 +72,13 @@ type ItemDetailPanelProps = {
   onToggleFound: () => void
   onClose: () => void
   isRuneword: boolean
+  runeTracking?: RuneTrackingControls
+}
+
+type RuneTrackingControls = {
+  ownedRunes: ReadonlySet<string>
+  onToggleRune: (runeName: string) => void
+  onOpenRune: (runeName: string) => void
 }
 
 function ItemDetailPanel({
@@ -80,6 +88,7 @@ function ItemDetailPanel({
   onToggleFound,
   onClose,
   isRuneword,
+  runeTracking,
 }: ItemDetailPanelProps) {
   const [activeSection, setActiveSection] = useState<SectionId>('overview')
   const [expandedSections, setExpandedSections] = useState<Set<SectionId>>(() => new Set(['overview']))
@@ -422,6 +431,7 @@ function ItemDetailPanel({
                 isFetching: detailQuery.isFetching,
                 noteFormProps,
                 variantUiState: section.id === 'variants' ? variantUiState : undefined,
+                runeTracking,
               })}
             </div>
           ))}
@@ -451,6 +461,7 @@ function ItemDetailPanel({
                     isFetching: detailQuery.isFetching,
                     noteFormProps,
                     variantUiState: section.id === 'variants' ? variantUiState : undefined,
+                    runeTracking,
                   })}
                 </div>
               </details>
@@ -481,6 +492,7 @@ function renderSectionContent({
   isFetching,
   noteFormProps,
   variantUiState,
+  runeTracking,
 }: {
   sectionId: SectionId
   item: Item
@@ -493,6 +505,7 @@ function renderSectionContent({
   isFetching: boolean
   noteFormProps?: NoteFormRenderProps
   variantUiState?: VariantUiState
+  runeTracking?: RuneTrackingControls
 }) {
   const isLoading = status === 'pending'
   const isError = status === 'error'
@@ -539,7 +552,7 @@ function renderSectionContent({
             ))}
           </dl>
 
-          {runewordMeta && <RunewordRecipe meta={runewordMeta} />}
+          {runewordMeta && <RunewordRecipe meta={runewordMeta} runeTracking={runeTracking} />}
 
           {isLoading && noProperties && (
             <p className="item-detail__state">Loading item overview…</p>
@@ -902,17 +915,62 @@ function buildRunewordSummary(meta: RunewordMeta): string {
   return `${baseText} ${details.join(' • ')}`
 }
 
-function RunewordRecipe({ meta }: { meta: RunewordMeta }) {
+function RunewordRecipe({
+  meta,
+  runeTracking,
+}: {
+  meta: RunewordMeta
+  runeTracking?: RuneTrackingControls
+}) {
   return (
     <section className="item-detail__runeword" aria-labelledby="item-runeword-heading">
       <h3 id="item-runeword-heading">Runeword recipe</h3>
       {meta.runes.length > 0 && (
         <div className="item-detail__runeword-runes" role="list">
-          {meta.runes.map((rune, index) => (
-            <span key={`${rune}-${index}`} className="item-detail__rune-chip" role="listitem">
-              {rune}
-            </span>
-          ))}
+          {meta.runes.map((rune, index) => {
+            const normalizedRune = normalizeRuneName(rune)
+            const isOwned = runeTracking?.ownedRunes?.has(normalizedRune) ?? false
+            const toggleLabel = isOwned ? `Mark ${rune} as missing` : `Mark ${rune} as owned`
+
+            return (
+              <div
+                key={`${rune}-${index}`}
+                className={classNames(
+                  'item-detail__rune-chip',
+                  runeTracking && 'item-detail__rune-chip--interactive',
+                  isOwned && 'item-detail__rune-chip--owned',
+                )}
+                role="listitem"
+              >
+                <button
+                  type="button"
+                  className="item-detail__rune-toggle"
+                  aria-pressed={isOwned}
+                  onClick={() => runeTracking?.onToggleRune(rune)}
+                  title={toggleLabel}
+                  aria-label={toggleLabel}
+                  disabled={!runeTracking}
+                >
+                  {isOwned && (
+                    <span className="item-detail__rune-icon" aria-hidden="true">
+                      <CheckIcon />
+                    </span>
+                  )}
+                  <span className="item-detail__rune-name">{rune}</span>
+                </button>
+                <button
+                  type="button"
+                  className="item-detail__rune-link"
+                  onClick={() => runeTracking?.onOpenRune(rune)}
+                  aria-label={`Open ${rune} rune details`}
+                  title={`Open ${rune} rune details`}
+                  disabled={!runeTracking}
+                >
+                  <ExternalLinkIcon />
+                </button>
+              </div>
+            )
+          })}
         </div>
       )}
       <dl className="item-detail__runeword-meta">
@@ -1087,6 +1145,17 @@ function formatExternalLinkLabel(url: string): string {
   } catch {
     return url
   }
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M6.5 11.2a1 1 0 0 1-.73-.32l-2-2.2a1 1 0 1 1 1.46-1.36l1.25 1.37 4.3-4.5a1 1 0 0 1 1.44 1.38l-5 5.2a1 1 0 0 1-.72.33z"
+      />
+    </svg>
+  )
 }
 
 function ExternalLinkIcon() {

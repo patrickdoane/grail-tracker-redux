@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+} from 'react'
 import { useMutation } from '@tanstack/react-query'
 import {
   Button,
@@ -22,6 +28,7 @@ import { getApiErrorMessage } from '../../lib/apiClient'
 import { useItemsQuery } from './useItemsQuery'
 import type { Item } from './itemsApi'
 import ItemDetailPanel from './ItemDetailPanel'
+import { normalizeRuneName, runeNamesMatch } from './runeUtils'
 import './ItemsPage.css'
 
 const CATALOGUE_ESTIMATE = 500
@@ -53,6 +60,35 @@ function ItemsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
   const [foundItemIds, setFoundItemIds] = useState<Set<number>>(() => new Set())
+  const [runewordRunesOwned, setRunewordRunesOwned] = useState<Map<number, Set<string>>>(() => {
+    if (typeof window === 'undefined') {
+      return new Map()
+    }
+    const raw = window.localStorage.getItem('grail-runeword-runes')
+    if (!raw) {
+      return new Map()
+    }
+    try {
+      const parsed = JSON.parse(raw) as Record<string, string[]>
+      const restored = new Map<number, Set<string>>()
+      Object.entries(parsed).forEach(([key, value]) => {
+        const id = Number(key)
+        if (Number.isNaN(id) || !Array.isArray(value)) {
+          return
+        }
+        const normalizedRunes = value
+          .map((entry) => normalizeRuneName(String(entry)))
+          .filter(Boolean)
+        if (normalizedRunes.length > 0) {
+          restored.set(id, new Set(normalizedRunes))
+        }
+      })
+      return restored
+    } catch (error) {
+      console.warn('[grail] failed to restore rune tracking state', error)
+      return new Map()
+    }
+  })
 
   const itemsQuery = useItemsQuery()
   const items = useMemo<Item[]>(() => itemsQuery.data ?? [], [itemsQuery.data])
@@ -127,6 +163,23 @@ function ItemsPage() {
     }
   }, [filteredItems, selectedItemId])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    const payload: Record<number, string[]> = {}
+    runewordRunesOwned.forEach((runes, runewordId) => {
+      if (runes.size > 0) {
+        payload[runewordId] = Array.from(runes)
+      }
+    })
+    try {
+      window.localStorage.setItem('grail-runeword-runes', JSON.stringify(payload))
+    } catch (error) {
+      console.warn('[grail] failed to persist rune tracking state', error)
+    }
+  }, [runewordRunesOwned])
+
   const catalogueMax = Math.max(items.length, CATALOGUE_ESTIMATE)
   const completionValue = items.length
 
@@ -196,6 +249,47 @@ function ItemsPage() {
   const toggleRunewordFilter = () => {
     setShowRunewordsOnly((value) => !value)
   }
+
+  const toggleRuneOwnership = useCallback((runewordId: number, runeName: string) => {
+    setRunewordRunesOwned((current) => {
+      const next = new Map(current)
+      const existingSet = next.get(runewordId)
+      const normalized = normalizeRuneName(runeName)
+      const updated = existingSet ? new Set(existingSet) : new Set<string>()
+      if (updated.has(normalized)) {
+        updated.delete(normalized)
+      } else {
+        updated.add(normalized)
+      }
+      if (updated.size === 0) {
+        next.delete(runewordId)
+      } else {
+        next.set(runewordId, updated)
+      }
+      return next
+    })
+  }, [])
+
+  const openRuneDetail = useCallback(
+    (runeName: string) => {
+      const normalized = normalizeRuneName(runeName)
+      setRarityFilter('all')
+      setQualityFilter('all')
+      setVersionFilter('all')
+      setShowRunewordsOnly(false)
+
+      const runeItem = items.find((entry) => runeNamesMatch(entry.name, normalized))
+
+      setSearchTerm(runeName)
+
+      if (runeItem) {
+        setSelectedItemId(runeItem.id)
+      } else {
+        setSelectedItemId(null)
+      }
+    },
+    [items],
+  )
 
   const toggleSelectedItem = (itemId: number) => {
     setSelectedItemId((current) => (current === itemId ? null : itemId))
@@ -471,6 +565,17 @@ function ItemsPage() {
               }
               onClose={() => setSelectedItemId(null)}
               isRuneword={selectedItemIsRuneword}
+              runeTracking={
+                selectedItemIsRuneword
+                  ? {
+                      ownedRunes:
+                        runewordRunesOwned.get(selectedItem.id) ?? new Set<string>(),
+                      onToggleRune: (runeName: string) =>
+                        toggleRuneOwnership(selectedItem.id, runeName),
+                      onOpenRune: openRuneDetail,
+                    }
+                  : undefined
+              }
             />
           </div>
         )}

@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import AuthMenu from '../features/auth/AuthMenu'
 import './AppShell.css'
 
 const NAV_LINKS = [
@@ -29,6 +30,9 @@ function AppShell() {
             </NavLink>
           ))}
         </nav>
+        <div className="app-bar__actions">
+          <AuthMenu />
+        </div>
       </header>
 
       <main className="app-shell__main">

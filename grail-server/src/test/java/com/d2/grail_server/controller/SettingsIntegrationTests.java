@@ -9,10 +9,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.d2.grail_server.dto.AuthResponse;
+import com.d2.grail_server.dto.RegisterRequest;
 import com.d2.grail_server.dto.UserPreferencesRequest;
 import com.d2.grail_server.dto.UserProfileRequest;
+import com.d2.grail_server.service.AuthService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,9 +35,13 @@ import org.springframework.test.web.servlet.MvcResult;
 class SettingsIntegrationTests {
   @Autowired private MockMvc mockMvc;
   @Autowired private ObjectMapper objectMapper;
+  @Autowired private AuthService authService;
+
+  private String authToken;
 
   @BeforeEach
   void resetState() throws Exception {
+    authToken = registerTestUser();
     // Warm up profile/preferences endpoints to ensure defaults exist
     mockMvc.perform(get("/api/user-profile")).andExpect(status().isOk());
     mockMvc.perform(get("/api/user-preferences")).andExpect(status().isOk());
@@ -44,6 +52,7 @@ class SettingsIntegrationTests {
     mockMvc
         .perform(
             put("/api/user-profile")
+                .header(HttpHeaders.AUTHORIZATION, bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"displayName\":\"Aster\",\"tagline\":\"Hunt\",\"email\":\"aster@example.com\",\"timezone\":\"Invalid/Zone\"}"))
         .andExpect(status().isBadRequest());
@@ -57,6 +66,7 @@ class SettingsIntegrationTests {
     mockMvc
         .perform(
             put("/api/user-profile")
+                .header(HttpHeaders.AUTHORIZATION, bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(profileRequest)))
         .andExpect(status().isOk())
@@ -78,6 +88,7 @@ class SettingsIntegrationTests {
     mockMvc
         .perform(
             put("/api/user-preferences")
+                .header(HttpHeaders.AUTHORIZATION, bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(preferencesRequest)))
         .andExpect(status().isOk())
@@ -92,6 +103,7 @@ class SettingsIntegrationTests {
     mockMvc
         .perform(
             post("/api/data-connectors/{id}/actions", "cloud-backup")
+                .header(HttpHeaders.AUTHORIZATION, bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"action\":\"manage\"}"))
         .andExpect(status().isOk())
@@ -103,7 +115,10 @@ class SettingsIntegrationTests {
 
     MvcResult conflictResult =
         mockMvc
-            .perform(multipart("/api/user-data/import").file(conflictFile))
+            .perform(
+                multipart("/api/user-data/import")
+                    .file(conflictFile)
+                    .header(HttpHeaders.AUTHORIZATION, bearerToken()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.conflictsDetected").value(true))
             .andExpect(jsonPath("$.job.status").value("FAILED"))
@@ -113,14 +128,19 @@ class SettingsIntegrationTests {
     long conflictJobId = conflictNode.get("job").get("id").asLong();
 
     mockMvc
-        .perform(post("/api/user-data/import/{jobId}/retry", conflictJobId))
+        .perform(
+            post("/api/user-data/import/{jobId}/retry", conflictJobId)
+                .header(HttpHeaders.AUTHORIZATION, bearerToken()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.conflictsDetected").value(false))
         .andExpect(jsonPath("$.job.status").value("COMPLETED"));
 
     MvcResult exportResult =
         mockMvc
-            .perform(post("/api/user-data/export").param("format", "csv"))
+            .perform(
+                post("/api/user-data/export")
+                    .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                    .param("format", "csv"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.job.status").value("COMPLETED"))
             .andReturn();
@@ -131,7 +151,9 @@ class SettingsIntegrationTests {
     assertThat(downloadUrl).contains("/api/user-data/export/" + exportJobId);
 
     mockMvc
-        .perform(get("/api/user-data/export/{jobId}/download", exportJobId))
+        .perform(
+            get("/api/user-data/export/{jobId}/download", exportJobId)
+                .header(HttpHeaders.AUTHORIZATION, bearerToken()))
         .andExpect(status().isOk())
         .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, org.hamcrest.Matchers.containsString("grail-export-")));
 
@@ -146,9 +168,25 @@ class SettingsIntegrationTests {
     mockMvc
         .perform(
             post("/api/onboarding/tasks/{taskId}", "share-progress")
+                .header(HttpHeaders.AUTHORIZATION, bearerToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"completed\":true}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.completed").value(true));
+  }
+
+  private String registerTestUser() {
+    RegisterRequest request = new RegisterRequest();
+    String username = "settings-user-" + UUID.randomUUID();
+    request.setUsername(username);
+    request.setEmail(username + "@example.com");
+    request.setPassword("StrongP@ssw0rd!");
+
+    AuthResponse response = authService.register(request);
+    return response.getToken();
+  }
+
+  private String bearerToken() {
+    return "Bearer " + authToken;
   }
 }

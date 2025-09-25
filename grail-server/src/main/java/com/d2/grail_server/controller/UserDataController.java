@@ -43,7 +43,8 @@ public class UserDataController {
   @GetMapping("/export/{jobId}/download")
   public ResponseEntity<Resource> downloadExport(
       @PathVariable Long jobId, @RequestParam(value = "format", required = false) String format) {
-    String safeFormat = (format == null || format.isBlank()) ? "csv" : format;
+    String safeFormat =
+        (format == null || format.trim().isEmpty()) ? "csv" : format;
     Resource resource = userDataService.downloadExport(jobId, safeFormat);
     String filename = String.format("grail-export-%d.%s", jobId, safeFormat);
 

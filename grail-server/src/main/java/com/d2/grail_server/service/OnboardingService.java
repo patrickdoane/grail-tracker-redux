@@ -65,9 +65,9 @@ public class OnboardingService {
 
     boolean profileBasicsComplete =
         profile.getDisplayName() != null
-            && !profile.getDisplayName().isBlank()
+            && !profile.getDisplayName().trim().isEmpty()
             && profile.getEmail() != null
-            && !profile.getEmail().isBlank();
+            && !profile.getEmail().trim().isEmpty();
 
     boolean syncPreferencesComplete =
         preferences != null && preferences.isShareProfile() && preferences.isSessionPresence();

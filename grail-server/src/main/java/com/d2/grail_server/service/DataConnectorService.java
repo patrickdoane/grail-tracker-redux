@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -35,7 +36,7 @@ public class DataConnectorService {
     bootstrapDefaults();
     return dataConnectorRepository.findAllByOrderByDisplayOrderAsc().stream()
         .map(this::toResponse)
-        .toList();
+        .collect(Collectors.toList());
   }
 
   public SyncJobResponse triggerAction(String connectorId, DataConnectorActionRequest request) {

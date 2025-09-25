@@ -1,3 +1,5 @@
+import { getAuthToken } from './authToken'
+
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 export type ApiRequestOptions = {
@@ -29,10 +31,12 @@ const API_BASE_URL = '/api'
 
 function buildRequestInit(options: ApiRequestOptions = {}): RequestInit {
   const { method = 'GET', headers = {}, body, signal } = options
+  const token = getAuthToken()
   const init: RequestInit = {
     method,
     headers: {
       ...(body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
     signal,

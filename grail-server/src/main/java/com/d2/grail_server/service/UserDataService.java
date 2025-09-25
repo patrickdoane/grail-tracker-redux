@@ -8,6 +8,7 @@ import com.d2.grail_server.model.SyncJobStatus;
 import com.d2.grail_server.model.SyncJobType;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
@@ -47,7 +48,10 @@ public class UserDataService {
       job = syncJobService.failJob(job, "Conflicts detected. Review details before retrying.");
     } else {
       long count =
-          content.lines().map(String::trim).filter(line -> !line.isEmpty()).count();
+          Arrays.stream(content.split("\\R"))
+              .map(String::trim)
+              .filter(line -> !line.isEmpty())
+              .count();
       int recordCount = (int) Math.max(1, count);
       job = syncJobService.completeJob(job, String.format("Imported %d records", recordCount));
     }
@@ -76,7 +80,7 @@ public class UserDataService {
   }
 
   public UserDataExportResponse startExport(String format) {
-    if (format == null || format.isBlank()) {
+    if (format == null || format.trim().isEmpty()) {
       format = "csv";
     }
 
@@ -99,10 +103,11 @@ public class UserDataService {
       throw new ResponseStatusException(BAD_REQUEST, "Export is still in progress");
     }
 
-    String safeFormat = (format == null || format.isBlank()) ? "csv" : format.toLowerCase();
+    String safeFormat =
+        (format == null || format.trim().isEmpty()) ? "csv" : format.toLowerCase();
     String header = "type,name,rarity,notes";
     List<String> rows =
-        List.of(
+        Arrays.asList(
             "item,Harlequin Crest,Unique,Found in Chaos Sanctuary",
             "rune,Zod,High,Still missing",
             "runeword,Enigma,Runeword,Completed last ladder");

@@ -5,6 +5,7 @@ import com.d2.grail_server.dto.DataConnectorResponse;
 import com.d2.grail_server.dto.SyncJobResponse;
 import com.d2.grail_server.model.DataConnector;
 import com.d2.grail_server.model.DataConnector.StatusVariant;
+import com.d2.grail_server.model.SyncJob;
 import com.d2.grail_server.model.SyncJobType;
 import com.d2.grail_server.repository.DataConnectorRepository;
 import java.time.LocalDateTime;

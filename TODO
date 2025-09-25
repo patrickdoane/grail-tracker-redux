@@ -83,15 +83,15 @@
   ✔ Add theme toggles (dark, light, high-contrast) and sync status indicators @done(25-09-26 09:15)
   ✔ Outline import/export flows aligned with backend endpoints and offline safeguards @done(25-09-26 09:35)
   ✔ Prototype shell early to host future auth + data controls @done(25-09-26 09:55)
-☐ Operationalize settings persistence and integrations
-  - Connect profile basics form to the upcoming `/api/user-profile` endpoints for load/save flows
-  - Validate inputs (email, timezone) and surface inline success + error states
-  - Persist notification and presence toggles to the user preferences store and broadcast updates across the client
-  - Wire theme + accent selections into the shared theme manager with local storage and system preference sync
-  - Replace mocked data connector statuses with live sync metadata and implement manage/schedule/import actions
-  - Implement import/export pipelines with progress feedback, conflict handling, and backend retries
-  - Drive onboarding checklist from real task completion signals and add analytics for task interactions
-  - Cover critical flows with integration tests and document rollout steps in `docs/settings.md`
+✔ Operationalize settings persistence and integrations @done(25-09-27 10:05)
+  ✔ Connect profile basics form to the upcoming `/api/user-profile` endpoints for load/save flows @done(25-09-27 09:12)
+  ✔ Validate inputs (email, timezone) and surface inline success + error states @done(25-09-27 09:14)
+  ✔ Persist notification and presence toggles to the user preferences store and broadcast updates across the client @done(25-09-27 09:20)
+  ✔ Wire theme + accent selections into the shared theme manager with local storage and system preference sync @done(25-09-27 09:28)
+  ✔ Replace mocked data connector statuses with live sync metadata and implement manage/schedule/import actions @done(25-09-27 09:40)
+  ✔ Implement import/export pipelines with progress feedback, conflict handling, and backend retries @done(25-09-27 09:48)
+  ✔ Drive onboarding checklist from real task completion signals and add analytics for task interactions @done(25-09-27 09:55)
+  ✔ Cover critical flows with integration tests and document rollout steps in `docs/settings.md` @done(25-09-27 10:00)
 ☐ Establish user authentication & authorization
   ✔ Evaluate options (Spring Security vs. managed IdP) @done(25-09-26 14:30)
   ✔ Define user model and persistence @done(25-09-26 14:30)

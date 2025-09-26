@@ -9,6 +9,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class RestExceptionHandler {
@@ -37,6 +38,13 @@ public class RestExceptionHandler {
               fieldErrors.put(field, error.getDefaultMessage());
             });
     return buildResponse(HttpStatus.BAD_REQUEST, "Validation failed", fieldErrors);
+  }
+
+  @ExceptionHandler(ResponseStatusException.class)
+  public ResponseEntity<Map<String, Object>> handleResponseStatus(ResponseStatusException ex) {
+    HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+    String message = ex.getReason() != null ? ex.getReason() : status.getReasonPhrase();
+    return buildResponse(status, message, null);
   }
 
   @ExceptionHandler(Exception.class)

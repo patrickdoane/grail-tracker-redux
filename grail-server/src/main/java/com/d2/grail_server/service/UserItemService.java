@@ -2,6 +2,7 @@ package com.d2.grail_server.service;
 
 import com.d2.grail_server.dto.UserItemRequest;
 import com.d2.grail_server.dto.UserItemResponse;
+import com.d2.grail_server.exception.ConflictException;
 import com.d2.grail_server.exception.ResourceNotFoundException;
 import com.d2.grail_server.model.Item;
 import com.d2.grail_server.model.User;
@@ -60,6 +61,7 @@ public class UserItemService {
   public UserItemResponse createUserItem(UserItemRequest request) {
     User user = findUser(request.getUserId());
     Item item = findItem(request.getItemId());
+    validateItemAllowed(item);
     UserItem userItem = new UserItem();
     applyRequest(userItem, request, user, item);
     UserItem saved = userItemRepository.save(userItem);
@@ -70,6 +72,7 @@ public class UserItemService {
     UserItem userItem = findUserItem(id);
     User user = findUser(request.getUserId());
     Item item = findItem(request.getItemId());
+    validateItemAllowed(item);
     applyRequest(userItem, request, user, item);
     UserItem saved = userItemRepository.save(userItem);
     return toResponse(saved);
@@ -121,5 +124,13 @@ public class UserItemService {
         userItem.getItem().getId(),
         userItem.getFoundAt(),
         userItem.getNotes());
+  }
+
+  private void validateItemAllowed(Item item) {
+    String quality = item.getQuality();
+    if (quality != null && quality.equalsIgnoreCase("Rune")) {
+      throw new ConflictException(
+          "Rune ownership tracking is disabled until authentication is available.");
+    }
   }
 }

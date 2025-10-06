@@ -243,11 +243,11 @@ function ItemsPage() {
       }
 
       if (found) {
-        const timestamp = new Date().toISOString().replace(/Z$/, '')
+        // Let the API stamp the find time so we remain compatible with deployments that
+        // still expect naive timestamps as well as newer versions that require offsets.
         return createUserItem({
           userId,
           itemId,
-          foundAt: timestamp,
         })
       }
 

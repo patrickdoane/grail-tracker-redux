@@ -109,7 +109,8 @@ public class UserItemService {
   private void applyRequest(UserItem userItem, UserItemRequest request, User user, Item item) {
     userItem.setUser(user);
     userItem.setItem(item);
-    LocalDateTime foundAt = request.getFoundAt();
+    LocalDateTime foundAt =
+        request.getFoundAt() != null ? request.getFoundAt().toLocalDateTime() : null;
     userItem.setFoundAt(foundAt != null ? foundAt : userItem.getFoundAt());
     userItem.setNotes(request.getNotes());
     if (foundAt == null && userItem.getFoundAt() == null) {

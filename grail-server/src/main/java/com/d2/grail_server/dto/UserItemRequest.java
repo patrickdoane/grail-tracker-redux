@@ -2,14 +2,14 @@ package com.d2.grail_server.dto;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 public class UserItemRequest {
   @NotNull private Long userId;
 
   @NotNull private Long itemId;
 
-  private LocalDateTime foundAt;
+  private OffsetDateTime foundAt;
 
   @Size(max = 1024)
   private String notes;
@@ -30,11 +30,11 @@ public class UserItemRequest {
     this.itemId = itemId;
   }
 
-  public LocalDateTime getFoundAt() {
+  public OffsetDateTime getFoundAt() {
     return foundAt;
   }
 
-  public void setFoundAt(LocalDateTime foundAt) {
+  public void setFoundAt(OffsetDateTime foundAt) {
     this.foundAt = foundAt;
   }
 

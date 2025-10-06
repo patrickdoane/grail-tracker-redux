@@ -98,8 +98,8 @@
 ☐ Establish user authentication & authorization
   ✔ Evaluate options (Spring Security vs. managed IdP) @done(25-09-26 14:30)
   ✔ Define user model and persistence @done(25-09-26 14:30)
-  - Add signup/login/logout flows to client shell
-  - Gate server-side rune ownership persistence on auth rollout
+  ✔ Add signup/login/logout flows to client shell @done(25-10-04 03:24)
+  ✔ Gate server-side rune ownership persistence on auth rollout @done(25-10-04 03:24)
 ☐ Document database setup and API usage
   - Expand README with Postgres install, migrations/seed instructions, and env guidance
   - Add sample API requests covering CRUD flows and filtering

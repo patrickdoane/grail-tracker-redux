@@ -1,3 +1,4 @@
+node_modules/
 TODOS
 .project
 .vscode/
@@ -13,3 +14,4 @@ official_reference.json
 grail-server/.m2/
 .venv/
 *.log
+grail-client/tests/e2e/.auth/

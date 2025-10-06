@@ -31,8 +31,14 @@ import ItemDetailPanel from './ItemDetailPanel'
 import { normalizeRuneName, runeNamesMatch } from './runeUtils'
 import './ItemsPage.css'
 import { useUserItemsQuery } from '../user-items/useUserItemsQuery'
-import { createUserItem, deleteUserItem, userItemsKeys, type UserItem } from '../user-items/userItemsApi'
-import { useUsersQuery } from '../users/useUsersQuery'
+import {
+  createUserItem,
+  deleteUserItem,
+  fetchUserItems,
+  userItemsKeys,
+  type UserItem,
+} from '../user-items/userItemsApi'
+import { useAuth } from '../auth/AuthContext'
 
 const CATALOGUE_ESTIMATE = 500
 
@@ -49,6 +55,8 @@ const isRuneword = (item: Item) => {
 type LogFindVariables = {
   itemId: number
   found: boolean
+  userId: number
+  existingId?: number
 }
 
 type LogFindContext = {
@@ -97,8 +105,8 @@ function ItemsPage() {
   })
 
   const itemsQuery = useItemsQuery()
-  const usersQuery = useUsersQuery()
-  const activeUserId = useMemo(() => usersQuery.data?.[0]?.id ?? null, [usersQuery.data])
+  const { user, isLoading: authLoading, isAuthenticated } = useAuth()
+  const activeUserId = useMemo(() => user?.id ?? null, [user])
   const canLogFinds = typeof activeUserId === 'number'
   const userItemsQuery = useUserItemsQuery(activeUserId ?? undefined)
   const items = useMemo<Item[]>(() => itemsQuery.data ?? [], [itemsQuery.data])
@@ -228,31 +236,44 @@ function ItemsPage() {
   }
 
   const logFindMutation = useMutation<UserItem | null, Error, LogFindVariables, LogFindContext>({
-    mutationFn: async ({ itemId, found }) => {
-      if (!canLogFinds || typeof activeUserId !== 'number') {
+    mutationKey: ['user-items', 'toggle'],
+    mutationFn: async ({ itemId, found, userId, existingId }) => {
+      if (!Number.isFinite(userId)) {
         throw new Error('Select a grail profile before logging finds.')
       }
 
       if (found) {
+        const timestamp = new Date().toISOString().replace(/Z$/, '')
         return createUserItem({
-          userId: activeUserId,
+          userId,
           itemId,
-          foundAt: new Date().toISOString(),
+          foundAt: timestamp,
         })
       }
 
-      const existing = userItemRecords.get(itemId)
-      if (!existing || existing.id <= 0) {
+      const cachedItems = queryClient.getQueryData<UserItem[]>(userItemsKeys.byUser(userId)) ?? []
+      const resolvedId =
+        existingId ??
+        userItemRecords.get(itemId)?.id ??
+        cachedItems.find((entry) => entry.itemId === itemId)?.id ??
+        userItems.find((entry) => entry.itemId === itemId)?.id ??
+        null
+      let deleteId = resolvedId ?? null
+      if (!deleteId || deleteId <= 0) {
+        const refreshed = await fetchUserItems(userId)
+        deleteId = refreshed.find((entry) => entry.itemId === itemId)?.id ?? null
+      }
+      if (!deleteId || deleteId <= 0) {
         throw new Error('No logged find to remove for this item yet.')
       }
-      await deleteUserItem(existing.id)
+      await deleteUserItem(deleteId)
       return null
     },
     onMutate: (variables) => {
       const previous = new Set(foundItemIds)
       const previousRecords = new Map(userItemRecords)
       const timestamp = new Date().toISOString()
-      if (!canLogFinds || typeof activeUserId !== 'number') {
+      if (!Number.isFinite(variables.userId)) {
         return { previous, previousRecords }
       }
       setUserItemRecords((prev) => {
@@ -261,7 +282,7 @@ function ItemsPage() {
           const placeholderId = -Date.now()
           next.set(variables.itemId, {
             id: placeholderId,
-            userId: activeUserId,
+            userId: variables.userId,
             itemId: variables.itemId,
             foundAt: timestamp,
             notes: null,
@@ -306,9 +327,9 @@ function ItemsPage() {
         })
       }
     },
-    onSettled: () => {
-      if (typeof activeUserId === 'number') {
-        queryClient.invalidateQueries({ queryKey: userItemsKeys.byUser(activeUserId) })
+    onSettled: (_result, _error, variables) => {
+      if (Number.isFinite(variables?.userId)) {
+        queryClient.invalidateQueries({ queryKey: userItemsKeys.byUser(variables.userId) })
       }
     },
   })
@@ -327,14 +348,14 @@ function ItemsPage() {
     if (itemsQuery.status === 'error') {
       return getApiErrorMessage(itemsQuery.error, 'Unable to load grail items right now.')
     }
-    if (usersQuery.status === 'pending') {
-      return 'Loading available grail hunter profiles…'
-    }
-    if (usersQuery.status === 'error') {
-      return getApiErrorMessage(usersQuery.error, 'Unable to load grail profiles. Logging is disabled until this resolves.')
+    if (authLoading) {
+      return 'Loading your grail profile…'
     }
     if (!canLogFinds) {
-      return 'Create a grail hunter profile to start logging finds and tracking progress.'
+      if (isAuthenticated) {
+        return 'Create a grail hunter profile to start logging finds.'
+      }
+      return 'Log in to start logging finds and tracking progress.'
     }
     if (userItemsQuery.status === 'pending') {
       return 'Fetching your logged finds from the server…'
@@ -413,13 +434,31 @@ function ItemsPage() {
   }
 
   const toggleItemFound = useCallback(
-    (itemId: number, shouldBeFound: boolean) => {
-      if (!canLogFinds) {
+    (itemId: number, shouldBeFound: boolean, existingRecordId?: number | null) => {
+      if (!canLogFinds || typeof activeUserId !== 'number') {
         return
       }
-      logFindMutation.mutate({ itemId, found: shouldBeFound })
+      const cachedItems = queryClient.getQueryData<UserItem[]>(userItemsKeys.byUser(activeUserId)) ?? []
+      const existing =
+        userItemRecords.get(itemId) ??
+        cachedItems.find((entry) => entry.itemId === itemId) ??
+        userItems.find((entry) => entry.itemId === itemId) ??
+        null
+      if (!existing && import.meta.env.DEV) {
+        console.warn('[items] missing existing record for deletion', {
+          itemId,
+          cachedItems,
+          userItems,
+        })
+      }
+      logFindMutation.mutate({
+        itemId,
+        found: shouldBeFound,
+        userId: activeUserId,
+        existingId: existingRecordId ?? existing?.id,
+      })
     },
-    [canLogFinds, logFindMutation],
+    [activeUserId, canLogFinds, logFindMutation, queryClient, userItemRecords, userItems],
   )
 
   const filtersArePristine =
@@ -437,7 +476,9 @@ function ItemsPage() {
     }
 
     const isFound = foundItemIds.has(target.id)
-    toggleItemFound(target.id, !isFound)
+    const recordId =
+      userItemRecords.get(target.id)?.id ?? userItems.find((entry) => entry.itemId === target.id)?.id ?? null
+    toggleItemFound(target.id, !isFound, recordId)
   }
 
   return (
@@ -637,6 +678,10 @@ function ItemsPage() {
           <Grid gap="lg" className="items-page__grid" minItemWidth="18rem">
             {filteredItems.map((item) => {
               const isFound = foundItemIds.has(item.id)
+              const userItemRecord =
+                userItemRecords.get(item.id) ??
+                userItems.find((entry) => entry.itemId === item.id) ??
+                null
               const isSelected = selectedItemId === item.id
               const isMutating = logFindMutation.isPending && pendingItemId === item.id
 
@@ -694,7 +739,8 @@ function ItemsPage() {
                         variant={isFound ? 'surface' : 'primary'}
                         loading={isMutating}
                         disabled={!canLogFinds}
-                        onClick={() => toggleItemFound(item.id, !isFound)}
+                        data-record-id={userItemRecord?.id ?? undefined}
+                        onClick={() => toggleItemFound(item.id, !isFound, userItemRecord?.id ?? null)}
                       >
                         {isFound ? 'Mark as missing' : 'Log find'}
                       </Button>
@@ -715,7 +761,15 @@ function ItemsPage() {
               item={selectedItem}
               isFound={selectedItemIsFound}
               isMutating={selectedItemIsMutating}
-              onToggleFound={() => toggleItemFound(selectedItem.id, !selectedItemIsFound)}
+              onToggleFound={() =>
+                toggleItemFound(
+                  selectedItem.id,
+                  !selectedItemIsFound,
+                  userItemRecords.get(selectedItem.id)?.id ??
+                    userItems.find((entry) => entry.itemId === selectedItem.id)?.id ??
+                    null,
+                )
+              }
               onClose={() => setSelectedItemId(null)}
               isRuneword={selectedItemIsRuneword}
               logActionsEnabled={canLogFinds}

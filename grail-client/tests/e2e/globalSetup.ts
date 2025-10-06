@@ -1,17 +1,24 @@
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { registerTestUser } from './bootstrap/registerTestUser'
+import { createAuthState } from './bootstrap/createAuthState'
 
 type SpawnResult = {
   code: number | null
   signal: NodeJS.Signals | null
 }
 
-async function runCommand(command: string, args: string[]): Promise<void> {
+type RunCommandOptions = {
+  cwd?: string
+}
+
+async function runCommand(command: string, args: string[], options: RunCommandOptions = {}): Promise<void> {
   const result: SpawnResult = await new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: 'inherit',
       shell: false,
+      cwd: options.cwd,
     })
 
     child.on('error', (error) => {
@@ -30,12 +37,33 @@ async function runCommand(command: string, args: string[]): Promise<void> {
   }
 }
 
+function resolvePythonExecutable(): string {
+  const envOverride = process.env.PLAYWRIGHT_PYTHON
+  const candidates = envOverride
+    ? [envOverride]
+    : process.platform === 'win32'
+      ? ['python', 'python3']
+      : ['python3', 'python']
+
+  for (const candidate of candidates) {
+    const result = spawnSync(candidate, ['--version'], { stdio: 'ignore' })
+    if (result.status === 0) {
+      return candidate
+    }
+  }
+
+  throw new Error(
+    `Unable to locate a Python executable. Set PLAYWRIGHT_PYTHON to a valid interpreter path before running tests.`,
+  )
+}
+
 export default async function globalSetup(): Promise<void> {
   const currentDir = path.dirname(fileURLToPath(import.meta.url))
-  const repoRoot = path.resolve(currentDir, '..', '..')
-  const pythonExecutable = process.env.PLAYWRIGHT_PYTHON ?? 'python'
+  const projectRoot = path.resolve(currentDir, '..', '..')
+  const repoRoot = path.resolve(projectRoot, '..')
+  const pythonExecutable = resolvePythonExecutable()
 
-  const csvPath = path.join(repoRoot, 'tests', 'e2e', 'fixtures', 'holy_grail_items.e2e.csv')
+  const csvPath = path.join(projectRoot, 'tests', 'e2e', 'fixtures', 'holy_grail_items.e2e.csv')
   const seedScriptPath = path.join(repoRoot, 'scripts', 'seed_database.py')
 
   const args = [seedScriptPath, '--csv', csvPath]
@@ -56,5 +84,7 @@ export default async function globalSetup(): Promise<void> {
     args.push('--password', process.env.PLAYWRIGHT_DB_PASSWORD)
   }
 
-  await runCommand(pythonExecutable, args)
+  await runCommand(pythonExecutable, args, { cwd: repoRoot })
+  await registerTestUser()
+  await createAuthState({ projectRoot })
 }

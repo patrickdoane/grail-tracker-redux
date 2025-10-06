@@ -27,6 +27,8 @@ import com.d2.grail_server.repository.UserRepository;
 import com.d2.grail_server.service.AuthService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -236,7 +238,7 @@ class CrudIntegrationTests {
     UserItemRequest updateRequest = new UserItemRequest();
     updateRequest.setUserId(userId);
     updateRequest.setItemId(itemId);
-    updateRequest.setFoundAt(LocalDateTime.of(2024, 1, 1, 12, 0));
+    updateRequest.setFoundAt(OffsetDateTime.of(LocalDateTime.of(2024, 1, 1, 12, 0), ZoneOffset.UTC));
     updateRequest.setNotes("Updated note");
 
     mockMvc
@@ -251,6 +253,45 @@ class CrudIntegrationTests {
     mockMvc
         .perform(delete("/api/user-items/{id}", userItemId).header("Authorization", bearerToken()))
         .andExpect(status().isNoContent());
+    mockMvc
+        .perform(delete("/api/users/{id}", userId).header("Authorization", bearerToken()))
+        .andExpect(status().isNoContent());
+  }
+
+  @Test
+  void userItemCreateAcceptsOffsetTimestamp() throws Exception {
+    Long userId = registerApiUser("grail_timestamp", "tz@example.com");
+    Long itemId = createItem("Mara's Kaleidoscope");
+
+    OffsetDateTime submittedFoundAt = OffsetDateTime.parse("2025-03-15T09:30:45Z");
+
+    UserItemRequest request = new UserItemRequest();
+    request.setUserId(userId);
+    request.setItemId(itemId);
+    request.setFoundAt(submittedFoundAt);
+
+    MvcResult response =
+        mockMvc
+            .perform(
+                post("/api/user-items")
+                    .header("Authorization", bearerToken())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.userId").value(userId))
+            .andExpect(jsonPath("$.itemId").value(itemId))
+            .andReturn();
+
+    Map<?, ?> payload =
+        objectMapper.readValue(response.getResponse().getContentAsString(), Map.class);
+    assertThat(payload.get("foundAt")).isEqualTo("2025-03-15T09:30:45");
+
+    Long userItemId = ((Number) payload.get("id")).longValue();
+
+    mockMvc
+        .perform(delete("/api/user-items/{id}", userItemId).header("Authorization", bearerToken()))
+        .andExpect(status().isNoContent());
+
     mockMvc
         .perform(delete("/api/users/{id}", userId).header("Authorization", bearerToken()))
         .andExpect(status().isNoContent());
@@ -325,6 +366,27 @@ class CrudIntegrationTests {
 
     AuthResponse response = authService.register(request);
     return response.getToken();
+  }
+
+  private Long registerApiUser(String username, String email) throws Exception {
+    UserRequest request = new UserRequest();
+    request.setUsername(username);
+    request.setEmail(email);
+    request.setPassword("StrongP@ssw0rd!");
+
+    MvcResult result =
+        mockMvc
+            .perform(
+                post("/api/users")
+                    .header("Authorization", bearerToken())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+    Map<?, ?> payload =
+        objectMapper.readValue(result.getResponse().getContentAsString(), Map.class);
+    return ((Number) payload.get("id")).longValue();
   }
 
   private String bearerToken() {

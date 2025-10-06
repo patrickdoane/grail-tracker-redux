@@ -243,7 +243,7 @@ function ItemsPage() {
       }
 
       if (found) {
-        const timestamp = new Date().toISOString().replace(/Z$/, '')
+        const timestamp = new Date().toISOString()
         return createUserItem({
           userId,
           itemId,

@@ -58,6 +58,9 @@
   ✔ Cover `useItemDetails` fallbacks for description-only items versus variant-rich payloads
   - Assert collection segmentation and checklist rendering in `SetsRunewordsPage`, including runeword rune sequencing.
   - Validate settings flows by testing `SettingsPage` profile/preference form submissions and error handling copy.
+  - Add regression cases for `SettingsPage` theme toggles to ensure persisted preference sync across reloads.
+  - Capture tests for data connector management actions (import, export, schedule) including optimistic status updates.
+  - Verify onboarding checklist interactions inside `SettingsPage` maintain accurate completion states and analytics events.
 ☐ Create item detail view @started(25-09-23 09:32)
   ✔ Implement hero banner with rarity ribbon, item art, and quick action buttons @done(25-09-23 08:33)
   ✔ Add Overview, Drop Sources, Variants, and Notes tabs/accordions with responsive collapse @done(25-09-23 17:13)
